@@ -1,9 +1,44 @@
 import {jest} from '@jest/globals';
-import {parse, tokenize} from './parser.js'
+import {ast, parse, tokenize} from './parser.js'
 
 test("test basic parser usage", () => {
   const p = parse("(+ 1 2)")
-  expect(p).toEqual([{type: 'id', val: '+'}, {type: 'num', val: 1}, {type: 'num', val: 2}])
+  expect(p.val).toEqual([{type: 'id', val: '+'}, {type: 'num', val: 1}, {type: 'num', val: 2}])
+})
+
+test("test nested parser usage", () => {
+  const p = parse("(+ 1 (+ 2 3))")
+  expect(p.val).toEqual([
+    {type: 'id', val: '+'}, 
+    {type: 'num', val: 1}, 
+    {type: 'ast', val: [
+      {type: 'id', val: '+'},
+      {type: 'num', val: 2},
+      {type: 'num', val: 3}
+    ]}
+  ])
+})
+
+test("test nested ast usage", () => {
+  const p = ast(    ['(', 
+    {type: 'id', val: '+'},
+    {type: 'num', val: 1},
+    '(',
+    {type: 'id', val: '+'},
+    {type: 'num', val: 2},
+    {type: 'num', val: 3},
+    ')',
+    ')',]
+  )
+  expect(p.val).toEqual([
+    {type: 'id', val: '+'}, 
+    {type: 'num', val: 1}, 
+    {type: 'ast', val: [
+      {type: 'id', val: '+'},
+      {type: 'num', val: 2},
+      {type: 'num', val: 3}
+    ]}
+  ])
 })
 
 
@@ -29,6 +64,20 @@ test("tokenize identifiers", () => {
 test("tokenize identifiers with number", () => {
   expect(tokenize('my0')).toEqual([
     {type: 'id', val: "my0"},
+  ])
+})
+
+test("tokenize nested expression", () => {
+  expect(tokenize('(+ 1 (+ 2 3))')).toEqual([
+    '(', 
+    {type: 'id', val: '+'},
+    {type: 'num', val: 1},
+    '(',
+    {type: 'id', val: '+'},
+    {type: 'num', val: 2},
+    {type: 'num', val: 3},
+    ')',
+    ')',
   ])
 })
 

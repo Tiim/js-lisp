@@ -92,7 +92,7 @@ export function ast(tokens) {
       throw new Error('S-Expression not closed with ")"');
     } else if (t === '(') {
       tokens.unshift('(')
-      AST.push({type: 'ast', val: ast(tokens)});
+      AST.push(ast(tokens));
     } else {
       AST.push(t);
     }
