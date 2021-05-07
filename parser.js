@@ -52,7 +52,7 @@ function tokenizeString(chars) {
 
 const whitespace = /\s/
 const number = /-|\d/
-const identifier = /[A-Za-z_\-+\/\*]/
+const identifier = /[A-Za-z_\-+\/\*\?]/
 
 export function tokenize(str) {
   const tokens = []
