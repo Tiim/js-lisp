@@ -11,8 +11,8 @@ const LOG = (...x) => DEBUG && console.log(...x);
 const DIR = (...x) => DEBUG && console.dir(...x); 
 
 
-const TRUE = {type: 'id', val: 't'};
-const FALSE = {type: 'list', val: []};
+export const TRUE = {type: 'id', val: 't'};
+export const FALSE = {type: 'list', val: []};
 
 const isTrue = (x) => x.type == 'id' && x.val == 't';
 
@@ -43,17 +43,13 @@ const globalEnv = {
   'cons': (x) => ({type: 'list', val: [x[0], ...(x[1].type === 'list'? x[1].val : [x[1]])]}),
   'debug': () => DEBUG = !DEBUG,
   'define': (x, env) => env[x[0].val] = x[1],
-  'eq': (x) => x[0] === x[1] || (x[0].type && x[1].type && x[0].type === x[1].type && x[0].val === x[1].val)? TRUE:FALSE,
+  'eq': (x) => x[0] === x[1] || (x[0].type && x[1].type && x[0].type === x[1].type && JSON.stringify(x[0].val) === JSON.stringify(x[1].val))? TRUE:FALSE,
   'eval': (x) => x,
   'load': (x) => loadFile(x[0]),
   'parse': (x) => parse(x[0]),
   'quote': (x) => x[0],
-
   'cond': (x) => evaluate(x.find(c => isTrue(evaluate(c.val[0]))).val[1]),
-
-  'display': (x) => {
-    x.forEach(x => console.log(x))
-  }
+  'display': (x) => x.forEach(x => console.log(x)),
 }
 
 /**
