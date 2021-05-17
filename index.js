@@ -62,7 +62,7 @@ const globalEnv = {
   'label': (x, env) => env[x[0].val] = x[1],
   'lambda': (x, env) => ({type: 'func', args: x[0].val.map(y => y.val), ast: x[1]}),
   'list': (x) => ({type: 'list', val: [...x]}),
-  'load': (x) => loadFile(x[0].val),
+  'load': (x) => {loadFile(x[0].val); return TRUE},
   'parse': (x) => ({type: list, val: parse(x[0])}),
   'quote': (x) => x[0],
 }
