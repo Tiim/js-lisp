@@ -49,7 +49,6 @@ function tokenizeString(chars) {
   }
 }
 
-
 const whitespace = /\s/
 const number = /-|\d/
 const identifier = /[A-Za-z_\-+\/\*\?]/
@@ -74,15 +73,47 @@ export function tokenize(str) {
     } else if (c === '"') {
       chars.unshift(c)
       tokens.push(tokenizeString(chars))
+    } else if (c === '\'') {
+      tokens.push('\'');
     }
   }
   return tokens;
 }
 
+function quoteAst(tokens) {
+  const AST = [];
+  let t = tokens.shift()
+  if (t !== '\'') {
+    throw new Error(`Expected "'" instead of "${t}"`);
+  }
+  t = tokens.shift()
+  if (t !== '(') {
+    return {type: 'list', val: [{type: 'id', val: 'quote'}, t]}
+  }
+  t = tokens.shift()
+  while (t !== ')') {
+    if (t === undefined) {
+      throw new Error('Expression not closed with ")"');
+    } else if (t === '(') {
+      tokens.unshift('(')
+      AST.push(ast(tokens));
+    } else {
+      AST.push(t);
+    }
+    t = tokens.shift()
+  }
+  return {type: 'list', val: [{type: 'id', val: 'quote'}, {type: 'list', val: AST}]};
+}
 
 export function ast(tokens) {
   const AST = [];
   let t = tokens.shift()
+  
+  if (t === '\'') {
+    tokens.unshift(t)
+    return quoteAst(tokens)
+  }
+  
   if (t !== '(') {
     throw new Error(`Expected "(" instead of "${t}"`);
   }
@@ -93,12 +124,15 @@ export function ast(tokens) {
     } else if (t === '(') {
       tokens.unshift('(')
       AST.push(ast(tokens));
+    } else if(t === '\'') {
+      tokens.unshift('\'');
+      AST.push(quoteAst(tokens));
     } else {
       AST.push(t);
     }
     t = tokens.shift()
   }
-  return {type: 'ast', val: AST};
+  return {type: 'list', val: AST};
 }
 
 export function parse(str) {

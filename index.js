@@ -10,37 +10,50 @@ let DEBUG = false;
 const LOG = (...x) => DEBUG && console.log(...x);
 const DIR = (...x) => DEBUG && console.dir(...x); 
 
+
+const TRUE = {type: 'id', val: 't'};
+const FALSE = {type: 'list', val: []};
+
+const isTrue = (x) => x.type == 'id' && x.val == 't';
+
 /**
  * The global environment
  */
 const globalEnv = {
-  '+': (x) => x.reduce((p, c) => p+c, 0),
+  '+': (x) => ({type: "num", val: x.reduce((p, c) => p + c.val, 0)}),
   '-': (x) => {
     if (x.length === 1) {
-      return -x[0];
+      return {type: "num", val: -x[0].val};
     } else {
-      return x[0] - globalEnv['+'](x.slice(1))
+      return {type: "num", val: x[0].val - globalEnv['+'](x.slice(1)).val}
     }
   },
-  '*': (x) => x.reduce((p, c) => p*c, 1),
+  '*': (x) => ({type: "num", val:x.reduce((p, c) => p*c.val, 1)}),
   '/': (x) => {
     if (x.length === 1) {
-      return 1 / x[0]
+      return {type: "num", val:1 / x[0].val};
     } else {
-      return x[0] / globalEnv['*'](x.slice(1))
+      return {type: "num", val: x[0].val / globalEnv['*'](x.slice(1)).val};
     }
   },
-  'atom?': (x) => (typeof x[0] === 'string' || typeof x[0] === 'number' || (typeof x[0] === 'object' && x[0].type != null)),
-  'car': (x) => x[0][0],
-  'cdr': (x) => x[0][1],
-  'cons': (x) => x.slice(0,2),
+  'atom': (x) =>  x[0].type !== 'list' || x[0].val.length === 0 ? TRUE: FALSE,
+  'begin': (x) => x[x.length -1],
+  'car': (x) => x[0].val[0],
+  'cdr': (x) => ({type: 'list', val: (x[0].val).slice(1)}),
+  'cons': (x) => ({type: 'list', val: [x[0], ...(x[1].type === 'list'? x[1].val : [x[1]])]}),
   'debug': () => DEBUG = !DEBUG,
   'define': (x, env) => env[x[0].val] = x[1],
-  'eq': (x) => x.reduce((p, c) => p && c === x[0], true),
+  'eq': (x) => x[0] === x[1] || (x[0].type && x[1].type && x[0].type === x[1].type && x[0].val === x[1].val)? TRUE:FALSE,
   'eval': (x) => x,
   'load': (x) => loadFile(x[0]),
   'parse': (x) => parse(x[0]),
   'quote': (x) => x[0],
+
+  'cond': (x) => evaluate(x.find(c => isTrue(evaluate(c.val[0]))).val[1]),
+
+  'display': (x) => {
+    x.forEach(x => console.log(x))
+  }
 }
 
 /**
@@ -51,17 +64,21 @@ globalEnv.define.preventEval = [0];
  * Prevent evaluation of the first 100 parameters of the quote command
  */
 globalEnv.quote.preventEval = [...new Array(100)].map((_,i) => i);
+/**
+ * Prevent evaluation of the first 100 parameters of the cond command
+ */
+globalEnv.cond.preventEval = [...new Array(100)].map((_,i) => i);
 
 function evaluate(ast, env=globalEnv) {
   LOG('Evaluating', ast);
   if (ast.type === 'id') {
     return env[ast.val];
   } else if (ast.type === 'num' || ast.type === 'str') {
-    return ast.val
-  } else if (ast.type === 'ast') {
-    LOG('Function call:', ast.val);
+    return ast
+  } else if (ast.type === 'list') {
     const proc = evaluate(ast.val[0], env)
     if (!proc || typeof proc !== 'function') {
+      console.log(ast.val[0].val)
       throw new Error(`Function "${ast.val[0].val}" is undefined`);
     }
     const args = ast.val.slice(1).map((a, i) => {
@@ -70,13 +87,16 @@ function evaluate(ast, env=globalEnv) {
       }
       return evaluate(a,env)
     })
-    return proc(args, env)
+    LOG('Function call:',  proc?.name, args);
+    const ret = proc(args, env);
+    LOG("Return", ret);
+    return ret;
   }
 }
 
 export function run(str) {
   const p = parse(str);
-  DIR({ p }, { depth: null });
+  DIR(p , { depth: null });
   
   return evaluate(p);
 }
@@ -97,13 +117,45 @@ function repl() {
   rl.question('> ', (str) => {
     try {  
       const res = run(str);
-      console.log(res);
+
+      LOG(res)
+      console.log('->', display(res));
     } catch(err) {
-      console.log(err);
+      console.log('#>',err);
     }
     read()
     })
   read()
+}
+
+function display(value) {
+  if (value == null) {
+    return '!no result'
+  }
+  if (Array.isArray(value)) {
+    console.log("warn: old list format")
+    return `( ${value.map(display).join(' ')} )`;
+  }
+  if (["number", "string"].includes(typeof value)) {
+    console.log("warn: old string/number format")
+    return JSON.stringify(value);
+  }
+  if (value.type === 'id') {
+    return value.val;
+  }
+
+  if (value.type === 'list') {
+    return `(${value.val.map(display).join(' ')})`;
+  }
+
+  if (value.type === 'num') {
+    return value.val
+  }
+  if (value.type === 'str') {
+    return `"${value.val}"`
+  }
+  console.log("Missing formatter for " , value, typeof value);
+  return value;
 }
 
 

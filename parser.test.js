@@ -11,7 +11,7 @@ test("test nested parser usage", () => {
   expect(p.val).toEqual([
     {type: 'id', val: '+'}, 
     {type: 'num', val: 1}, 
-    {type: 'ast', val: [
+    {type: 'list', val: [
       {type: 'id', val: '+'},
       {type: 'num', val: 2},
       {type: 'num', val: 3}
@@ -33,7 +33,7 @@ test("test nested ast usage", () => {
   expect(p.val).toEqual([
     {type: 'id', val: '+'}, 
     {type: 'num', val: 1}, 
-    {type: 'ast', val: [
+    {type: 'list', val: [
       {type: 'id', val: '+'},
       {type: 'num', val: 2},
       {type: 'num', val: 3}
