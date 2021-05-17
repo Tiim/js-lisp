@@ -8,7 +8,7 @@ import {parse} from './parser.js';
  */
 let DEBUG = false;
 const LOG = (...x) => DEBUG && console.log(...x);
-const DIR = (...x) => DEBUG && console.dir(...x); 
+const DIR = (x) => DEBUG && console.dir(x, {depth: Infinity}); 
 
 
 export const TRUE = {type: 'id', val: 't'};
@@ -16,16 +16,27 @@ export const FALSE = {type: 'list', val: []};
 
 const isTrue = (x) => x.type == 'id' && x.val == 't';
 
+const getEnv = (id, env) => {
+  do {
+    const val = env[id];
+    if (val) {
+      return val;
+    }
+    env = env._parentEnv;
+  } while(env);
+  throw new Error(`Identifier ${id} not found in env`);
+}
+
 /**
  * The global environment
  */
 const globalEnv = {
   '+': (x) => ({type: "num", val: x.reduce((p, c) => p + c.val, 0)}),
-  '-': (x) => {
+  '-': (x, env) => {
     if (x.length === 1) {
       return {type: "num", val: -x[0].val};
     } else {
-      return {type: "num", val: x[0].val - globalEnv['+'](x.slice(1)).val}
+      return {type: "num", val: x[0].val - getEnv('+',env)(x.slice(1)).val}
     }
   },
   '*': (x) => ({type: "num", val:x.reduce((p, c) => p*c.val, 1)}),
@@ -33,23 +44,24 @@ const globalEnv = {
     if (x.length === 1) {
       return {type: "num", val:1 / x[0].val};
     } else {
-      return {type: "num", val: x[0].val / globalEnv['*'](x.slice(1)).val};
+      return {type: "num", val: x[0].val / getEnv('*',env)(x.slice(1)).val};
     }
   },
   'atom': (x) =>  x[0].type !== 'list' || x[0].val.length === 0 ? TRUE: FALSE,
   'begin': (x) => x[x.length -1],
   'car': (x) => x[0].val[0],
   'cdr': (x) => ({type: 'list', val: (x[0].val).slice(1)}),
+  'cond': (x) => evaluate(x.find(c => isTrue(evaluate(c.val[0]))).val[1]),
   'cons': (x) => ({type: 'list', val: [x[0], ...(x[1].type === 'list'? x[1].val : [x[1]])]}),
   'debug': () => DEBUG = !DEBUG,
   'define': (x, env) => env[x[0].val] = x[1],
+  'display': (x) => x.forEach(x => console.log(x)),
   'eq': (x) => x[0] === x[1] || (x[0].type && x[1].type && x[0].type === x[1].type && JSON.stringify(x[0].val) === JSON.stringify(x[1].val))? TRUE:FALSE,
   'eval': (x) => x,
   'load': (x) => loadFile(x[0]),
   'parse': (x) => parse(x[0]),
   'quote': (x) => x[0],
-  'cond': (x) => evaluate(x.find(c => isTrue(evaluate(c.val[0]))).val[1]),
-  'display': (x) => x.forEach(x => console.log(x)),
+  'lambda': (x, env) => ({type: 'func', args: x[0].val.map(y => y.val), ast: x[1]}),
 }
 
 /**
@@ -64,16 +76,22 @@ globalEnv.quote.preventEval = [...new Array(100)].map((_,i) => i);
  * Prevent evaluation of the first 100 parameters of the cond command
  */
 globalEnv.cond.preventEval = [...new Array(100)].map((_,i) => i);
+/**
+ * Prevent evaluation of the first and second paramerter of the lambda command
+ */
+globalEnv.lambda.preventEval = [0,1];
+
 
 function evaluate(ast, env=globalEnv) {
-  LOG('Evaluating', ast);
+  LOG('Evaluating:');
+  DIR(ast);
   if (ast.type === 'id') {
-    return env[ast.val];
+    return getEnv(ast.val, env);
   } else if (ast.type === 'num' || ast.type === 'str') {
     return ast
   } else if (ast.type === 'list') {
     const proc = evaluate(ast.val[0], env)
-    if (!proc || typeof proc !== 'function') {
+    if (!proc || (typeof proc !== 'function' && proc.type !== 'func')) {
       console.log(ast.val[0].val)
       throw new Error(`Function "${ast.val[0].val}" is undefined`);
     }
@@ -83,8 +101,19 @@ function evaluate(ast, env=globalEnv) {
       }
       return evaluate(a,env)
     })
-    LOG('Function call:',  proc?.name, args);
-    const ret = proc(args, env);
+    let ret;
+    if (!proc.type) {
+      LOG('Built-in function call:',  proc?.name);
+      DIR(args)
+      ret = proc(args, env);
+    } else {
+      LOG('User defined function call:');
+      DIR(proc)
+      const newEnv = proc.args.reduce((obj, a, i) => ({...obj, [a]: args[i]}),{})
+      LOG('New ENV', newEnv)
+      newEnv._parentEnv = env;
+      ret = evaluate(proc.ast, newEnv)
+    }
     LOG("Return", ret);
     return ret;
   }
@@ -92,8 +121,6 @@ function evaluate(ast, env=globalEnv) {
 
 export function run(str) {
   const p = parse(str);
-  DIR(p , { depth: null });
-  
   return evaluate(p);
 }
 
@@ -128,29 +155,22 @@ function display(value) {
   if (value == null) {
     return '!no result'
   }
-  if (Array.isArray(value)) {
-    console.log("warn: old list format")
-    return `( ${value.map(display).join(' ')} )`;
-  }
-  if (["number", "string"].includes(typeof value)) {
-    console.log("warn: old string/number format")
-    return JSON.stringify(value);
-  }
   if (value.type === 'id') {
     return value.val;
   }
-
   if (value.type === 'list') {
     return `(${value.val.map(display).join(' ')})`;
   }
-
   if (value.type === 'num') {
     return value.val
   }
   if (value.type === 'str') {
     return `"${value.val}"`
   }
-  console.log("Missing formatter for " , value, typeof value);
+  if (value.type === 'func') {
+    return `(lambda (${value.args.map(display).join(' ')}) (${value.ast.map(display).join(' ')}))`
+  }
+  console.log(`Missing formatter for ${value} (${typeof value})`);
   return value;
 }
 
