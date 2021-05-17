@@ -74,3 +74,31 @@ test("eq", () => {
   expect(run("(eq 'a 'b)")).toEqual(FALSE)
   expect(run("(eq '() '())")).toEqual(TRUE)
 })
+
+test("lambda", () => {
+  expect(run("((lambda (x) (cons x '(b))) 'a)")).toEqual({
+    type: 'list', 
+    val: [
+      {type: 'id', val: 'a'},
+      {type: 'id', val: 'b'},
+    ]
+  })
+  expect(run("((lambda (x y) (cons x (cdr y))) 'z '(a b c))")).toEqual({
+    type: 'list', 
+    val: [
+      {type: 'id', val: 'z'},
+      {type: 'id', val: 'b'},
+      {type: 'id', val: 'c'},
+    ]
+  })
+  // TODO: why is the second lambda quoted in the book
+  expect(run("((lambda (f) (f '(b c))) '(lambda (x) (cons 'a x)))")).toEqual({
+    type: 'list', 
+    val: [
+      {type: 'id', val: 'a'},
+      {type: 'id', val: 'b'},
+      {type: 'id', val: 'c'},
+    ]
+  })
+  
+})

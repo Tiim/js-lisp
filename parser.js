@@ -136,5 +136,10 @@ export function ast(tokens) {
 }
 
 export function parse(str) {
-  return ast(tokenize(str));
+  const tokens = tokenize(str);
+  const a = []
+  do {
+  a.push(ast(tokens));
+  } while (tokens.length != 0)
+  return a;
 }
