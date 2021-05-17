@@ -31,7 +31,7 @@ const getEnv = (id, env) => {
 /**
  * The global environment
  */
-const globalEnv = {
+export const globalEnv = {
   '+': (x) => ({type: "num", val: x.reduce((p, c) => p + c.val, 0)}),
   '-': (x, env) => {
     if (x.length === 1) {
@@ -134,8 +134,11 @@ function evaluate(ast, env=globalEnv) {
   }
 }
 
-export function run(str) {
+export function run(str, env) {
   const p = parse(str);
+  if (env) {
+    return p.map(e => evaluate(e, env));
+  }
   return p.map(e => evaluate(e));
 }
 

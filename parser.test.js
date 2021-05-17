@@ -2,12 +2,12 @@ import {jest} from '@jest/globals';
 import {ast, parse, tokenize} from './parser.js'
 
 test("test basic parser usage", () => {
-  const p = parse("(+ 1 2)")
+  const [p] = parse("(+ 1 2)")
   expect(p.val).toEqual([{type: 'id', val: '+'}, {type: 'num', val: 1}, {type: 'num', val: 2}])
 })
 
 test("test nested parser usage", () => {
-  const p = parse("(+ 1 (+ 2 3))")
+  const [p] = parse("(+ 1 (+ 2 3))")
   expect(p.val).toEqual([
     {type: 'id', val: '+'}, 
     {type: 'num', val: 1}, 
@@ -30,7 +30,7 @@ test("test nested ast usage", () => {
     ')',
     ')',]
   )
-  expect(p.val).toEqual([
+  expect(p).toEqual({type: 'list', val: [
     {type: 'id', val: '+'}, 
     {type: 'num', val: 1}, 
     {type: 'list', val: [
@@ -38,7 +38,7 @@ test("test nested ast usage", () => {
       {type: 'num', val: 2},
       {type: 'num', val: 3}
     ]}
-  ])
+  ]})
 })
 
 
@@ -48,6 +48,10 @@ test("tokenize number", () => {
 
 test("tokenize negative number", () => {
   expect(tokenize('-1234')).toEqual([{type: 'num', val: -1234}])
+})
+
+test("tokenize number with decimal point", () => {
+  expect(tokenize('2.5')).toEqual([{type: 'num', val: 2.5}])
 })
 
 test("tokenize string", () => {
@@ -64,6 +68,12 @@ test("tokenize identifiers", () => {
 test("tokenize identifiers with number", () => {
   expect(tokenize('my0')).toEqual([
     {type: 'id', val: "my0"},
+  ])
+})
+
+test("tokenize identifiers with dots", () => {
+  expect(tokenize('my.')).toEqual([
+    {type: 'id', val: "my."},
   ])
 })
 

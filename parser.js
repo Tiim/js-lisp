@@ -3,7 +3,7 @@
 function tokenizeNumber(chars) {
   let c = chars.shift();
   let nr = '';
-  while (c != null && c.match(number)) {
+  while (c != null && c.match(number)|| c === '.') {
     nr += c;
     c = chars.shift();
   }
