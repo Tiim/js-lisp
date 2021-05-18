@@ -13,6 +13,7 @@ const DIR = (x) => DEBUG && console.dir(x, {depth: Infinity});
 
 export const TRUE = {type: 'id', val: 't'};
 export const FALSE = {type: 'list', val: []};
+export const newEnv = () => ({_parentEnv: globalEnv})
 
 const isTrue = (x) => x.type == 'id' && x.val == 't';
 
@@ -26,6 +27,14 @@ const getEnv = (id, env) => {
   } while(env);
   DIR(env);
   throw new Error(`Identifier ${id} not found in env ${env}`);
+}
+
+const printEnv = (env) => {
+  do {
+    Object.entries(env)
+      .forEach(([key, val]) => key!== '_parentEnv' && console.log(`${key}: ${display(val)}`))
+    env = env._parentEnv;
+  } while(env);
 }
 
 /**
@@ -54,7 +63,6 @@ export const globalEnv = {
   'cdr': (x) => ({type: 'list', val: (x[0].val).slice(1)}),
   'cond': (x, env) => evaluate(x.find(c => isTrue(evaluate(c.val[0], env))).val[1], env),
   'cons': (x) => ({type: 'list', val: [x[0], ...(x[1].type === 'list'? x[1].val : [x[1]])]}),
-  'debug': () => DEBUG = !DEBUG,
   'defun': (x, env) => env[x[0].val] = ({type: 'func', args: x[1].val.map(y => y.val), ast: x[2]}),
   'display': (x) => x.forEach(x => console.log(x)),
   'eq': (x) => x[0] === x[1] || (x[0].type && x[1].type && x[0].type === x[1].type && JSON.stringify(x[0].val) === JSON.stringify(x[1].val))? TRUE:FALSE,
@@ -62,9 +70,17 @@ export const globalEnv = {
   'label': (x, env) => env[x[0].val] = x[1],
   'lambda': (x, env) => ({type: 'func', args: x[0].val.map(y => y.val), ast: x[1]}),
   'list': (x) => ({type: 'list', val: [...x]}),
-  'load': (x) => {loadFile(x[0].val); return TRUE},
+  'load': (x, env) => {loadFile(x[0].val, env); return TRUE},
   'parse': (x) => ({type: list, val: parse(x[0])}),
   'quote': (x) => x[0],
+  'debug': (x, env) => {
+    if (!x.length) {
+      DEBUG = !DEBUG;
+    } else if (x[0].val === 'env') {
+      printEnv(env);
+    } 
+    return TRUE;
+  },
 }
 
 /**
@@ -89,7 +105,7 @@ globalEnv.cond.preventEval = [...new Array(100)].map((_,i) => i);
 globalEnv.lambda.preventEval = [0,1];
 
 
-function evaluate(ast, env=globalEnv) {
+function evaluate(ast, env) {
   LOG('Evaluating:');
   DIR(ast);
   DIR(env);
@@ -102,7 +118,7 @@ function evaluate(ast, env=globalEnv) {
 
     // to solve quoted lambdas for some reason
     while (proc.type === 'list') {
-      proc = evaluate(proc)
+      proc = evaluate(proc, env)
     }
 
     if (!proc || (typeof proc !== 'function' && proc.type !== 'func')) {
@@ -120,7 +136,14 @@ function evaluate(ast, env=globalEnv) {
     if (!proc.type) {
       LOG('Built-in function call:',  proc?.name);
       DIR(args)
-      ret = proc(args, env);
+      try {
+        ret = proc(args, env);
+      } catch (err) {
+        console.log('ERROR: function call ' + proc?.name +' failed.');
+        console.log('args: ' + JSON.stringify(args, null, 2));
+        console.log('env:', + JSON.stringify(env, null, 2));
+        throw new Error(err);
+      }
     } else {
       LOG('User defined function call:');
       DIR(proc)
@@ -136,17 +159,17 @@ function evaluate(ast, env=globalEnv) {
 
 export function run(str, env) {
   const p = parse(str);
-  if (env) {
-    return p.map(e => evaluate(e, env));
+  if (!env) {
+    env = newEnv();
   }
-  return p.map(e => evaluate(e));
+  return p.map(e => evaluate(e, env));
 }
 
 
-function loadFile(file) {
+function loadFile(file, env) {
   LOG('Loading file ' + file)
   const str = readFileSync(file, {encoding: 'utf-8'})
-  return {type: 'list', val: run(str)};
+  return {type: 'list', val: run(str, env)};
 }
 
 function repl() {
@@ -188,6 +211,9 @@ function display(value) {
   if (value.type === 'func') {
     return `(lambda (${value.args.join(' ')}) (${value.ast.val.map(display).join(' ')}))`
   }
+  if (typeof value === 'function') {
+    return `(lambda () (internal function))`
+  }
   console.log(`Missing formatter for ${value} (${typeof value})`);
   return value;
 }
@@ -197,7 +223,26 @@ function main() {
   if (process.env.NODE_ENV === 'test') {
     return
   }
-  repl();
+  
+  const env = newEnv();
+  const argv = process.argv;
+  
+  const fileIdx = argv.findIndex(a => a === '-f')+1;
+  const file = argv[fileIdx];
+  if (file && fileIdx !== 0) {
+    console.log(display(loadFile(file, env)));
+    console.log()
+  }
+  const codeIdx = argv.findIndex(a => a === '-c') +1;
+  const code = argv[codeIdx];
+  if (code && codeIdx !== 0) {
+    const res = run(code, env)
+    res.forEach(r => console.log(display(r)));
+  }  
+
+  if (!fileIdx && !codeIdx) {
+    repl();
+  }
 }
 
 main();

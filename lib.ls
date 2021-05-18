@@ -1,5 +1,6 @@
 (defun caar   (e) (car (car e)))
 (defun cadar  (e) (car (cdr (car e))))
+(defun caddar (e) (car (cdr (cdr (car e)))))
 (defun caddr  (e) (car (cdr (cdr e))))
 (defun cadr   (e) (car (cdr e)))
 (defun cdar   (e) (cdr (car e)))
