@@ -1,5 +1,7 @@
 
-
+/**
+ * Read characters and return a number token
+ */
 function tokenizeNumber(chars) {
   let c = chars.shift();
   let nr = '';
@@ -18,6 +20,9 @@ function tokenizeNumber(chars) {
   }
 }
 
+/**
+ * Read characters and return a identifier token
+ */
 function tokenizeIdentifier(chars) {
   let c = chars.shift();
   let id = '';
@@ -31,6 +36,9 @@ function tokenizeIdentifier(chars) {
   return {type: 'id', val: id};
 }
 
+/**
+ * Read characters and return a string token
+ */
 function tokenizeString(chars) {
   let c = chars.shift() // "
   let last = c;
@@ -49,10 +57,15 @@ function tokenizeString(chars) {
   }
 }
 
+/* Some Regex matchers */
 const whitespace = /\s/
 const number = /-|\d/
 const identifier = /[A-Za-z_\-+\/\*\?\.]/
 
+/**
+ * The main tokenizer function.
+ * Receives a string and returns an array of tokens
+ */
 export function tokenize(str) {
   const tokens = []
 
@@ -80,6 +93,9 @@ export function tokenize(str) {
   return tokens;
 }
 
+/**
+ * AST assembling of a quoted expression
+ */
 function quoteAst(tokens) {
   const AST = [];
   let t = tokens.shift()
@@ -108,6 +124,9 @@ function quoteAst(tokens) {
   return {type: 'list', val: [{type: 'id', val: 'quote'}, {type: 'list', val: AST}]};
 }
 
+/**
+ * AST assembling from list of tokens
+ */
 export function ast(tokens) {
   const AST = [];
   let t = tokens.shift()
@@ -115,6 +134,10 @@ export function ast(tokens) {
   if (t === '\'') {
     tokens.unshift(t)
     return quoteAst(tokens)
+  }
+
+  if (t?.type) {
+    return t;
   }
   
   if (t !== '(') {
@@ -138,6 +161,11 @@ export function ast(tokens) {
   return {type: 'list', val: AST};
 }
 
+
+/**
+ * Tokenize and assemble AST from string
+ * returns array of AST objects.
+ */
 export function parse(str) {
   const tokens = tokenize(str);
   const a = []
