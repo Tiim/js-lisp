@@ -97,6 +97,9 @@ function quoteAst(tokens) {
     } else if (t === '(') {
       tokens.unshift('(')
       AST.push(ast(tokens));
+    } else if(t === '\'') {
+      tokens.unshift('\'');
+      AST.push(quoteAst(tokens));
     } else {
       AST.push(t);
     }
@@ -139,7 +142,7 @@ export function parse(str) {
   const tokens = tokenize(str);
   const a = []
   do {
-  a.push(ast(tokens));
+    a.push(ast(tokens));
   } while (tokens.length != 0)
   return a;
 }

@@ -37,6 +37,14 @@ const printEnv = (env) => {
   } while(env);
 }
 
+function assertType(x, type) {
+  if (x?.type === type) {
+    return x
+  } else {
+    throw new Error("Expected type " + type + " got type " + x?.type)
+  }
+}
+
 /**
  * The global environment
  */
@@ -59,19 +67,20 @@ export const globalEnv = {
   },
   'atom': (x) =>  x[0].type !== 'list' || x[0].val.length === 0 ? TRUE: FALSE,
   'begin': (x) => x[x.length -1],
-  'car': (x) => x[0].val[0],
-  'cdr': (x) => ({type: 'list', val: (x[0].val).slice(1)}),
+  'car': (x) => assertType(x[0], 'list').val[0],
+  'cdr': (x) => ({type: 'list', val: (assertType(x[0], 'list').val).slice(1)}),
   'cond': (x, env) => evaluate(x.find(c => isTrue(evaluate(c.val[0], env))).val[1], env),
   'cons': (x) => ({type: 'list', val: [x[0], ...(x[1].type === 'list'? x[1].val : [x[1]])]}),
-  'defun': (x, env) => env[x[0].val] = ({type: 'func', args: x[1].val.map(y => y.val), ast: x[2]}),
+  'defun': (x, env) => env[x[0].val] = ({type: 'func', args: x[1].val.map(y => y.val), ast: x[2], name: x[0].val}),
   'display': (x) => x.forEach(x => console.log(x)),
+  'print': (x) => {console.log(x.map(y => display(y)).join('\n')); return TRUE;},
   'eq': (x) => x[0] === x[1] || (x[0].type && x[1].type && x[0].type === x[1].type && JSON.stringify(x[0].val) === JSON.stringify(x[1].val))? TRUE:FALSE,
   'eval': (x) => x,
   'label': (x, env) => env[x[0].val] = x[1],
-  'lambda': (x, env) => ({type: 'func', args: x[0].val.map(y => y.val), ast: x[1]}),
+  'lambda': (x) => ({type: 'func', args: x[0].val.map(y => y.val), ast: x[1]}),
   'list': (x) => ({type: 'list', val: [...x]}),
-  'load': (x, env) => {loadFile(x[0].val, env); return TRUE},
-  'parse': (x) => ({type: list, val: parse(x[0])}),
+  'load': (x, env) => {loadFile(assertType(x[0], 'str').val, env); return TRUE},
+  'parse': (x) => ({type: 'list', val: parse(assertType(x[0], 'str').val)}),
   'quote': (x) => x[0],
   'debug': (x, env) => {
     if (!x.length) {
@@ -108,7 +117,7 @@ globalEnv.lambda.preventEval = [0,1];
 function evaluate(ast, env) {
   LOG('Evaluating:');
   DIR(ast);
-  DIR(env);
+  //DIR(env);
   if (ast.type === 'id') {
     return getEnv(ast.val, env);
   } else if (ast.type === 'num' || ast.type === 'str') {
@@ -142,7 +151,7 @@ function evaluate(ast, env) {
         console.log('ERROR: function call ' + proc?.name +' failed.');
         console.log('args: ' + JSON.stringify(args, null, 2));
         console.log('env:', + JSON.stringify(env, null, 2));
-        throw new Error(err);
+        throw err;
       }
     } else {
       LOG('User defined function call:');
@@ -177,10 +186,13 @@ function repl() {
     input: process.stdin,
     output: process.stdout,
   })
+
+  const env = newEnv();
+
   const read = () =>
   rl.question('> ', (str) => {
     try {  
-      const res = run(str);
+      const res = run(str, env);
 
       LOG(res)
       res.forEach(r => console.log('->', display(r)));

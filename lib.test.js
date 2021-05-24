@@ -12,9 +12,10 @@ beforeEach(() => {
 test("cxxxr", () => {
   expect(run("(caar '((a b) c))", env)[0]).toEqual({type: 'id', val: 'a'})
   expect(run("(cadar '(((c y) 1) c))", env)[0]).toEqual({type: 'num', val: 1})
+  expect(run("(caddar '((a (b c) d) x))", env)[0]).toEqual({type: 'id', val: 'd'})
   expect(run("(caddr '(1 (2 3) 4))", env)[0]).toEqual({type: 'num', val: 4})
   expect(run("(cadr '(1 2))", env)[0]).toEqual({type: 'num', val: 2})
-  expect(run("(cdar '((1 2) 3))", env)[0]).toEqual({type: 'list', val: [{type: 'num', val: 2}]})
+  expect(run("(cdar '((a b) (c d) e))", env)[0]).toEqual({type: 'list', val: [{type: 'id', val: 'b'}]})
 })
 
 test("null", () => {

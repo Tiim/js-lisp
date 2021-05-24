@@ -98,3 +98,26 @@ test("tokenize symbols as identifiers", () => {
     symbols.map(s => ({type: 'id', val: s})),
   )
 })
+
+test("nested quotes", () => {
+  expect(tokenize("(eval. '(eq 'a 'a) '())")).toEqual([
+    "(",
+     {"type": "id", "val": "eval."},
+     "'",
+     "(",
+     {"type": "id", "val": "eq"},
+     "'",
+     {"type": "id", "val": "a"},
+     "'",
+     {"type": "id", "val": "a"},
+     ")",
+     "'",
+     "(",
+     ")",
+     ")",
+    ])
+
+
+    expect(ast(tokenize("(eval. '(eq 'a 'a) '())")))
+      .toEqual(ast(tokenize("(eval. (quote (eq (quote a) (quote a))) (quote ()))")))
+})
