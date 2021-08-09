@@ -138,6 +138,10 @@ export const globalEnv = {
   },
   '*': (x) => ({type: "num", val:x.reduce((p, c) => p*c.val, 1)}),
   '/': (x, env, stacktrace) => {
+    if (x.slice(1).findIndex( y => y.val === 0) !== -1) {
+      throw new LispError('Divide By Zero', stacktrace)
+    }
+
     if (x.length === 1) {
       return {type: "num", val:1 / x[0].val};
     } else {
