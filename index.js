@@ -120,45 +120,88 @@ function assertType(x, type, stacktrace) {
   }
 }
 
+function assertArgs(x, {min, max, exact}, stacktrace) {
+  if(min !== undefined && x.length < min) {
+    throw new LispError(`Function ${stacktrace[stacktrace.length-1]} expects at least ${min} args, given: ${x.length}`, stacktrace);
+  } else if (max !== undefined && x.length > max) {
+    throw new LispError(`Function ${stacktrace[stacktrace.length-1]} expects at most ${max} args, given: ${x.length}`, stacktrace);
+  } else if (exact !== undefined && x.length !== exact) {
+    throw new LispError(`Function ${stacktrace[stacktrace.length-1]} expects exactly ${exact} args, given: ${x.length}`, stacktrace);
+  }
+  return x;
+}
+
+function assertListLen(x, {min, max, exact}, stacktrace) {
+  assertType(x, 'list', stacktrace);
+  if(min !== undefined && x.val.length < min) {
+    throw new LispError(`List index out of bounds, length: ${x.val.length}, expected at least: ${min}`, stacktrace);
+  } else if (max !== undefined && x.val.length > max) {
+    throw new LispError(`List index out of bounds, length: ${x.val.length}, expected at most: ${max}`, stacktrace);
+  } else if (exact !== undefined && x.val.length !== exact) {
+    throw new LispError(`List index out of bounds, length: ${x.val.length}, expected exactly: ${exact}`, stacktrace);
+  }
+
+  return x;
+}
+
 /**
  * The global environment
  */
 export const globalEnv = {
-  '+': (x, env, stacktrace) => ({
+  '+': (x, _env, stacktrace) => ({
     type: "num", 
     val: x.map(y => 
       assertType(y, 'num', stacktrace)
     ).reduce((p, c) => p + c.val, 0)}),
   '-': (x, env, stacktrace) => {
-    if (x.length === 1) {
-      return {type: "num", val: -x[0].val};
+    x.forEach(y => assertType(y, "num", stacktrace))
+    if (x.length <= 1) {
+      return {type: "num", val: -(x[0]?.val ?? 0)};
     } else {
       return {type: "num", val: x[0].val - getEnv('+',env, stacktrace)(x.slice(1)).val}
     }
   },
-  '*': (x) => ({type: "num", val:x.reduce((p, c) => p*c.val, 1)}),
+  '*': (x) => ({type: "num", val: x.map(y => assertType(y, "num", stacktrace)).reduce((p, c) => p*c.val, 1)}),
   '/': (x, env, stacktrace) => {
+    x.forEach(y => assertType(y, "num", stacktrace))
+
     if (x.slice(1).findIndex( y => y.val === 0) !== -1) {
       throw new LispError('Divide By Zero', stacktrace)
     }
 
-    if (x.length === 1) {
-      return {type: "num", val:1 / x[0].val};
+    if (x.length <= 1) {
+      return {type: "num", val: 1 / (x[0]?.val ?? 1)};
     } else {
       return {type: "num", val: x[0].val / getEnv('*',env, stacktrace)(x.slice(1)).val};
     }
   },
-  'atom': (x) =>  x[0].type !== 'list' || x[0].val.length === 0 ? TRUE: FALSE,
-  'begin': (x) => x[x.length -1],
-  'car': (x, _env, stacktrace) => assertType(x[0], 'list', stacktrace).val[0],
-  'cdr': (x, _env, stacktrace) => ({type: 'list', val: (assertType(x[0], 'list', stacktrace).val).slice(1)}),
-  'cond': (x, env, stacktrace) => evaluate(x.find(c => isTrue(evaluate(c.val[0], env))).val[1], env, stacktrace),
-  'cons': (x) => ({type: 'list', val: [x[0], ...(x[1].type === 'list'? x[1].val : [x[1]])]}),
-  'defun': (x, env) => env[x[0].val] = ({type: 'func', args: x[1].val.map(y => y.val), ast: x[2], name: x[0].val}),
+  'atom': (x, _env, stacktrace) =>  assertArgs(x, {exact: 1}, stacktrace)[0].type !== 'list' || x[0].val.length === 0 ? TRUE: FALSE,
+  'begin': (x, _env, stacktrace) => assertArgs(x, {min: 1}, stacktrace)[x.length -1],
+  'car': (x, _env, stacktrace) => assertListLen(assertArgs(x, {exact: 1}, stacktrace)[0], {min: 1}, stacktrace).val[0],
+  'cdr': (x, _env, stacktrace) => ({type: 'list', val: (assertType(assertArgs(x, {exact: 1}, stacktrace)[0], 'list', stacktrace).val).slice(1)}),
+  'cond': (x, env, stacktrace) => { 
+    assertArgs(x, {min: 1}, stacktrace)
+    x.forEach(y => assertListLen(y, {exact: 2}, stacktrace));
+    const trueCondition = x.find(c => isTrue(evaluate(c.val[0], env)))?.val[1];
+    if (trueCondition === undefined) {
+      throw new LispError("No true branch found", stacktrace)
+    }
+    return evaluate(trueCondition, env, stacktrace);
+  },
+  'cons': (x, _env, stacktrace) => {
+    assertArgs(x, {exact: 2}, stacktrace);
+    return {type: 'list', val: [x[0], ...(x[1].type === 'list'? x[1].val : [x[1]])]};
+  },
+  'defun': (x, env) => {
+
+    // TODO: implement type and arg checking 
+    env[x[0].val] = ({type: 'func', args: x[1].val.map(y => y.val), ast: x[2], name: x[0].val});
+    return env[x[0].val];
+  },
   'display': (x) => x.forEach(x => console.log(x)),
   'print': (x) => {console.log(x.map(y => display(y)).join('\n')); return TRUE;},
   'eq': (x) => x[0] === x[1] || (x[0].type && x[1].type && x[0].type === x[1].type && JSON.stringify(x[0].val) === JSON.stringify(x[1].val))? TRUE:FALSE,
-  'eval': (x, env, stacktrace) => evaluate(x[0], env, stacktrace),
+  'eval': (x, env, stacktrace) => evaluate(assertListLen(x[0], {min: 1}, stacktrace), env, stacktrace),
   'label': (x, env) => env[x[0].val] = x[1],
   'lambda': (x) => ({type: 'func', args: x[0].val.map(y => y.val), ast: x[1]}),
   'list': (x) => ({type: 'list', val: [...x]}),
@@ -205,6 +248,10 @@ function evaluate(ast, env, stacktrace = []) {
   DIR(ast);
   LOG('STACK:');
   DIR(stacktrace);
+
+  if (ast == undefined) {
+    throw new LispError('Internal error: tried to evaluate undefined value', stacktrace)
+  }
   
   if (ast.type === 'id') {
     // ast is an identifier, return the value from the environment
@@ -245,7 +292,7 @@ function evaluate(ast, env, stacktrace = []) {
       LOG('Built-in function call:',  proc?.name);
       DIR(args)
       try {
-        ret = proc(args, env, [...stacktrace, `Builtin call: ${proc.name}`]);
+        ret = proc(args, env, [...stacktrace, proc.name]);
       } catch (err) {
         if (DEBUG) {
           console.log('ERROR: function call ' + proc?.name +' failed.');
@@ -309,10 +356,13 @@ function repl() {
       LOG(res)
       res.forEach(r => console.log('->', display(r)));
     } catch(err) {
-      
-      printStacktrace(err.lispStacktrace);
-
-      console.log('#>',err.message);
+      if (err.lispStacktrace) {
+        printStacktrace(err.lispStacktrace);
+        console.log('#>',err.message);
+      } else {
+        console.log("No stacktrace found!");
+        console.log(err)
+      }
     }
     read()
     })
