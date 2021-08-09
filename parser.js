@@ -20,7 +20,7 @@ function tokenizeNumber(chars) {
   if (Number.isNaN(num)) {
     return tokenizeIdentifier(recoverChars);
   } else {
-    return {type: 'num', val: num};
+    return {type: 'num', val: num, pos: recoverChars.pos};
   }
 }
 
@@ -28,6 +28,7 @@ function tokenizeNumber(chars) {
  * Read characters and return a identifier token
  */
 function tokenizeIdentifier(chars) {
+  const pos = chars.pos
   let c = chars.shift();
   let id = '';
   while (c != null && (c.match(identifier)|| c.match(number))) {
@@ -37,20 +38,21 @@ function tokenizeIdentifier(chars) {
   if (c != null) {
     chars.unshift(c);
   }
-  return {type: 'id', val: id};
+  return {type: 'id', val: id, pos};
 }
 
 /**
  * Read characters and return a string token
  */
 function tokenizeString(chars) {
+  const pos = chars.pos
   let c = chars.shift() // "
   let last = c;
   c = chars.shift()
   let str = '';
   while (true) {
     if (c === '"' && last !== '\\') {
-      return {type: 'str', val: str};
+      return {type: 'str', val: str, pos};
     } 
     if (c === undefined) {
       throw new ParseError("String literal never finished", chars.pos)
@@ -81,7 +83,7 @@ export function tokenize(str) {
     if (c.match(whitespace)) {
       continue
     } else if (c === '(' || c === ')') {
-      tokens.push({type: 'special', val: c})
+      tokens.push({type: 'special', val: c, pos: chars.pos})
     } else if (c.match(number)) {
       chars.unshift(c);
       tokens.push(tokenizeNumber(chars));
@@ -92,7 +94,7 @@ export function tokenize(str) {
       chars.unshift(c)
       tokens.push(tokenizeString(chars))
     } else if (c === '\'') {
-      tokens.push({type: "special", val: '\''});
+      tokens.push({type: "special", val: '\'', pos: chars.pos});
     }
   }
   return tokens;
@@ -104,12 +106,13 @@ export function tokenize(str) {
 function quoteAst(tokens) {
   const AST = [];
   let t = tokens.shift()
+  const pos = t.pos;
   if (t.type !== 'special' || t.val !== '\'') {
     throw new Error(`Expected "'" instead of "${t}"`);
   }
   t = tokens.shift()
   if (t.type !== 'special' || t.val !== '(') {
-    return {type: 'list', val: [{type: 'id', val: 'quote'}, t]}
+    return {type: 'list', val: [{type: 'id', val: 'quote'}, t], pos: t.pos}
   }
   t = tokens.shift()
   while (t.type !== 'special' || t.val !== ')') {
@@ -126,7 +129,7 @@ function quoteAst(tokens) {
     }
     t = tokens.shift()
   }
-  return {type: 'list', val: [{type: 'id', val: 'quote'}, {type: 'list', val: AST}]};
+  return {type: 'list', val: [{type: 'id', val: 'quote'}, {type: 'list', val: AST}], pos};
 }
 
 /**
@@ -135,6 +138,7 @@ function quoteAst(tokens) {
 export function ast(tokens) {  
   const AST = [];
   let t = tokens.shift()
+  const pos = t.pos;
   
   if (t.type === 'special' && t.val === '\'') {
     tokens.unshift(t)
@@ -163,7 +167,7 @@ export function ast(tokens) {
     }
     t = tokens.shift()
   }
-  return {type: 'list', val: AST};
+  return {type: 'list', val: AST, pos};
 }
 
 
@@ -180,6 +184,20 @@ export function parse(str) {
   return a;
 }
 
+
+/**
+ * Removes all properties of the AST exept the type and value properties
+ * This is useful for the unit tests because for example the pos property is just noise
+ */
+export function cleanAST(obj) {
+  if (Array.isArray(obj)) {
+    return obj.map(o => cleanAST(o));
+  } else if (obj.type === 'list') {
+    return {type: 'list', val: obj.val.map(o => cleanAST(o))};
+  } else {
+    return {type: obj.type, val: obj.val};
+  }
+}
 
 class CharacterProvider {
 

@@ -8,5 +8,12 @@ class LispError extends Error {
 
 }
 
+class ParseError extends Error {
+    constructor(message, pos) {
+        super(message);
+        this.pos = pos;
+    }
+}
 
-export {LispError};
+
+export {LispError, ParseError};

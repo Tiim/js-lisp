@@ -98,7 +98,7 @@ const getEnv = (id, env, stacktrace) => {
     env = env._parentEnv;
   } while(env);
   DIR(env);
-  throw new LispError(`Identifier ${id} not found in env ${env}`, [...stacktrace, `Evaluating ${id}`]);
+  throw new LispError(`Identifier ${id} not found in env`, [...stacktrace, `Evaluating ${id}`]);
 }
 
 /**

@@ -1,5 +1,6 @@
 import {jest} from '@jest/globals';
 import {run, TRUE, FALSE} from './index.js';
+import {cleanAST} from './parser.js'
 
 test("eval arithmatic +", () => {
   const [res] = run('(+ 1 2)')
@@ -12,16 +13,16 @@ test("nested arithmatic", () => {
 })
 
 test("pairs", () => {
-  const [res] = run('(cons 1 2)')
+  const [res] = cleanAST(run('(cons 1 2)'));
   expect(res).toEqual({type: 'list', val: [{type: 'num', val: 1 }, {type: 'num', val: 2 }]})
 })
 
 test("car cdr", () => {
-  expect(run('(car (cdr (cons 1 (cons 2 3))))'))
+  expect(cleanAST(run('(car (cdr (cons 1 (cons 2 3))))')))
     .toEqual([{type: "num", val: 2}]);
-  expect(run("(car '(a b c))"))
+  expect(cleanAST(run("(car '(a b c))")))
     .toEqual([{type: "id", val: 'a'}]);
-  expect(run("(cdr '(a b c))"))
+  expect(cleanAST(run("(cdr '(a b c))")))
     .toEqual([{type: "list", val: [
       {type: "id", val: 'b'},
       {type: "id", val: 'c'}
@@ -29,13 +30,13 @@ test("car cdr", () => {
 })
 
 test('cons', () => {
-  expect(run("(cons 'a '(b c))"))
+  expect(cleanAST(run("(cons 'a '(b c))")))
     .toEqual([{type: 'list', val: [
       {type: "id", val: 'a'},
       {type: "id", val: 'b'},
       {type: "id", val: 'c'},
     ]}])
-  expect(run("(cons 'a (cons 'b (cons 'c '())))"))
+  expect(cleanAST(run("(cons 'a (cons 'b (cons 'c '())))")))
     .toEqual([{type: 'list', val: [
       {type: "id", val: 'a'},
       {type: "id", val: 'b'},
@@ -55,14 +56,14 @@ test("atom", () => {
 })
 
 test("quote", () => {
-  expect(run('(quote a)')).toEqual([{type: 'id', val: 'a'}])
-  expect(run("'a")).toEqual([{type: 'id', val: 'a'}])
-  expect(run("(quote (a b c))")).toEqual([{type: 'list', val: [
+  expect(cleanAST(run('(quote a)'))).toEqual([{type: 'id', val: 'a'}])
+  expect(cleanAST(run("'a"))).toEqual([{type: 'id', val: 'a'}])
+  expect(cleanAST(run("(quote (a b c))"))).toEqual([{type: 'list', val: [
     {type: 'id', val: 'a'},
     {type: 'id', val: 'b'},
     {type: 'id', val: 'c'},
   ]}])
-    expect(run("'(a b c)")).toEqual([{type: 'list', val: [
+  expect(cleanAST(run("'(a b c)"))).toEqual([{type: 'list', val: [
     {type: 'id', val: 'a'},
     {type: 'id', val: 'b'},
     {type: 'id', val: 'c'},
@@ -76,14 +77,14 @@ test("eq", () => {
 })
 
 test("lambda", () => {
-  expect(run("((lambda (x) (cons x '(b))) 'a)")).toEqual([{
+  expect(cleanAST(run("((lambda (x) (cons x '(b))) 'a)"))).toEqual([{
     type: 'list', 
     val: [
       {type: 'id', val: 'a'},
       {type: 'id', val: 'b'},
     ]
   }])
-  expect(run("((lambda (x y) (cons x (cdr y))) 'z '(a b c))")).toEqual([{
+  expect(cleanAST(run("((lambda (x y) (cons x (cdr y))) 'z '(a b c))"))).toEqual([{
     type: 'list', 
     val: [
       {type: 'id', val: 'z'},
@@ -92,7 +93,7 @@ test("lambda", () => {
     ]
   }])
   // TODO: why is the second lambda quoted in the book
-  expect(run("((lambda (f) (f '(b c))) '(lambda (x) (cons 'a x)))")).toEqual([{
+  expect(cleanAST(run("((lambda (f) (f '(b c))) '(lambda (x) (cons 'a x)))"))).toEqual([{
     type: 'list', 
     val: [
       {type: 'id', val: 'a'},
@@ -104,7 +105,7 @@ test("lambda", () => {
 })
 
 test('list', () => {
-  expect(run("(list 'a 'b 'c)")[0]).toEqual({
+  expect(cleanAST(run("(list 'a 'b 'c)"))[0]).toEqual({
     type: 'list',
     val: [
       {type: 'id', val: 'a'},
