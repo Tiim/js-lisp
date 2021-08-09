@@ -14,7 +14,7 @@ test("stack trace", () => {
     expect(err.lispStacktrace).toEqual([
       "test",
       "my-failing-func",
-      "Builtin call: /",
+      "/",
     ])
   }
 })
@@ -26,21 +26,21 @@ test("stack trace long", () => {
     (dec 5)
     `)
   } catch (err) {
-    console.log(err)
+    //console.log(err)
     expect(err.lispStacktrace).toEqual([
       "dec",
-      "Builtin call: cond",
+      "cond",
       "dec",
-      "Builtin call: cond",
+      "cond",
       "dec",
-      "Builtin call: cond",
+      "cond",
       "dec",
-      "Builtin call: cond",
+      "cond",
       "dec",
-      "Builtin call: cond",
+      "cond",
       "dec",
-      "Builtin call: cond",
-      "Builtin call: /",
+      "cond",
+      "/",
     ])
   }
 })

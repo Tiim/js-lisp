@@ -87,6 +87,9 @@ const isTrue = (x) => x.type == 'id' && x.val == 't';
  * parent environments
  */
 const getEnv = (id, env, stacktrace) => {
+  if (!stacktrace) {
+    throw new Error('no stacktrace given!')
+  }
   do {
     const val = env[id];
     if (val) {
@@ -113,6 +116,9 @@ const printEnv = (env) => {
  * Assert value x is of type type.
  */
 function assertType(x, type, stacktrace) {
+  if (!stacktrace) {
+    throw new Error('no stacktrace given!')
+  }
   if (x?.type === type) {
     return x
   } else {
@@ -121,6 +127,9 @@ function assertType(x, type, stacktrace) {
 }
 
 function assertArgs(x, {min, max, exact}, stacktrace) {
+  if (!stacktrace) {
+    throw new Error('no stacktrace given!')
+  }
   if(min !== undefined && x.length < min) {
     throw new LispError(`Function ${stacktrace[stacktrace.length-1]} expects at least ${min} args, given: ${x.length}`, stacktrace);
   } else if (max !== undefined && x.length > max) {
@@ -132,6 +141,9 @@ function assertArgs(x, {min, max, exact}, stacktrace) {
 }
 
 function assertListLen(x, {min, max, exact}, stacktrace) {
+  if (!stacktrace) {
+    throw new Error('no stacktrace given!')
+  }
   assertType(x, 'list', stacktrace);
   if(min !== undefined && x.val.length < min) {
     throw new LispError(`List index out of bounds, length: ${x.val.length}, expected at least: ${min}`, stacktrace);
@@ -158,7 +170,7 @@ export const globalEnv = {
     if (x.length <= 1) {
       return {type: "num", val: -(x[0]?.val ?? 0)};
     } else {
-      return {type: "num", val: x[0].val - getEnv('+',env, stacktrace)(x.slice(1)).val}
+      return {type: "num", val: x[0].val - getEnv('+',env, stacktrace)(x.slice(1), env, stacktrace).val}
     }
   },
   '*': (x) => ({type: "num", val: x.map(y => assertType(y, "num", stacktrace)).reduce((p, c) => p*c.val, 1)}),
@@ -172,7 +184,7 @@ export const globalEnv = {
     if (x.length <= 1) {
       return {type: "num", val: 1 / (x[0]?.val ?? 1)};
     } else {
-      return {type: "num", val: x[0].val / getEnv('*',env, stacktrace)(x.slice(1)).val};
+      return {type: "num", val: x[0].val / getEnv('*', env, stacktrace)(x.slice(1), env, stacktrace).val};
     }
   },
   'atom': (x, _env, stacktrace) =>  assertArgs(x, {exact: 1}, stacktrace)[0].type !== 'list' || x[0].val.length === 0 ? TRUE: FALSE,
@@ -192,22 +204,58 @@ export const globalEnv = {
     assertArgs(x, {exact: 2}, stacktrace);
     return {type: 'list', val: [x[0], ...(x[1].type === 'list'? x[1].val : [x[1]])]};
   },
-  'defun': (x, env) => {
-
-    // TODO: implement type and arg checking 
+  'defun': (x, env, stacktrace) => {
+    assertArgs(x, {exact: 3}, stacktrace);
+    assertType(x[0], 'id', stacktrace);
+    assertType(x[1], 'list', stacktrace);
+    x[1].val.forEach(y => assertType(y, 'id', stacktrace));
+    assertType(x[2], 'list', stacktrace);
     env[x[0].val] = ({type: 'func', args: x[1].val.map(y => y.val), ast: x[2], name: x[0].val});
     return env[x[0].val];
   },
-  'display': (x) => x.forEach(x => console.log(x)),
+  'display': (x) => {
+    x.forEach(x => console.log(x.val));
+    return TRUE;
+  },
   'print': (x) => {console.log(x.map(y => display(y)).join('\n')); return TRUE;},
-  'eq': (x) => x[0] === x[1] || (x[0].type && x[1].type && x[0].type === x[1].type && JSON.stringify(x[0].val) === JSON.stringify(x[1].val))? TRUE:FALSE,
-  'eval': (x, env, stacktrace) => evaluate(assertListLen(x[0], {min: 1}, stacktrace), env, stacktrace),
-  'label': (x, env) => env[x[0].val] = x[1],
-  'lambda': (x) => ({type: 'func', args: x[0].val.map(y => y.val), ast: x[1]}),
+  'eq': (x, _env, stacktrace) => {
+    assertArgs(x, {exact: 2}, stacktrace);
+    return x[0] === x[1] || (x[0].type && x[1].type && x[0].type === x[1].type && JSON.stringify(x[0].val) === JSON.stringify(x[1].val))? TRUE:FALSE
+  },
+  'eval': (x, env, stacktrace) => {
+    assertArgs(x, {exact: 1}, stacktrace)
+    assertListLen(x[0], {min: 1}, stacktrace)
+    return evaluate(x[0], env, stacktrace)
+  },
+  'label': (x, env, stacktrace) => {
+    assertArgs(x, {exact: 2}, stacktrace);
+    assertType(x[0], 'id', stacktrace);
+    env[x[0].val] = x[1];
+    return x[1];
+  },
+  'lambda': (x, _env, stacktrace) => {
+    assertArgs(x, {exact: 2}, stacktrace);
+    assertType(x[0], 'list', stacktrace);
+    x[0].val.forEach(y => assertType(y, 'id', stacktrace));
+    assertListLen(x[1], {min: 1}, stacktrace);
+    return {type: 'func', args: x[0].val.map(y => y.val), ast: x[1]};
+  },
   'list': (x) => ({type: 'list', val: [...x]}),
-  'load': (x, env, stacktrace) => {loadFile(assertType(x[0], 'str', stacktrace).val, env, stacktrace); return TRUE},
-  'parse': (x, _env, stacktrace) => ({type: 'list', val: parse(assertType(x[0], 'str', stacktrace).val)}),
-  'quote': (x) => x[0],
+  'load': (x, env, stacktrace) => {
+    assertArgs(x, {exact: 1}, stacktrace);
+    assertType(x[0], 'str', stacktrace);
+    loadFile(x[0].val, env, stacktrace); 
+    return TRUE;
+  },
+  'parse': (x, _env, stacktrace) => {
+    assertArgs(x, {exact: 1}, stacktrace);
+    assertType(x[0], 'str', stacktrace);
+    return {type: 'list', val: parse(x[0].val)};
+  },
+  'quote': (x, _env, stacktrace) => {
+    assertArgs(x, {exact: 1}, stacktrace);
+    return x[0];
+  },
   'debug': (x, env) => {
     if (!x.length) {
       DEBUG = !DEBUG;
