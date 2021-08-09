@@ -1,8 +1,12 @@
+import { ParseError } from "./error.js";
 
 /**
  * Read characters and return a number token
  */
 function tokenizeNumber(chars) {
+  
+  const recoverChars = chars.copy();
+  
   let c = chars.shift();
   let nr = '';
   while (c != null && c.match(number)|| c === '.') {
@@ -14,7 +18,7 @@ function tokenizeNumber(chars) {
   }
   const num = Number(nr);
   if (Number.isNaN(num)) {
-    return tokenizeIdentifier(nr.split('').concat(chars))
+    return tokenizeIdentifier(recoverChars);
   } else {
     return {type: 'num', val: num};
   }
@@ -49,7 +53,7 @@ function tokenizeString(chars) {
       return {type: 'str', val: str};
     } 
     if (c === undefined) {
-      return str;
+      throw new ParseError("String literal never finished", chars.pos)
     }
     str += c;
     last = c;
@@ -69,14 +73,15 @@ const identifier = /[A-Za-z_\-+\/\*\?\.]/
 export function tokenize(str) {
   const tokens = []
 
-  const chars = str.split('');
+  const chars = new CharacterProvider(str);
+  
   while (chars.length > 0) {
     const c = chars.shift()
 
     if (c.match(whitespace)) {
       continue
     } else if (c === '(' || c === ')') {
-      tokens.push(c)
+      tokens.push({type: 'special', val: c})
     } else if (c.match(number)) {
       chars.unshift(c);
       tokens.push(tokenizeNumber(chars));
@@ -87,7 +92,7 @@ export function tokenize(str) {
       chars.unshift(c)
       tokens.push(tokenizeString(chars))
     } else if (c === '\'') {
-      tokens.push('\'');
+      tokens.push({type: "special", val: '\''});
     }
   }
   return tokens;
@@ -99,22 +104,22 @@ export function tokenize(str) {
 function quoteAst(tokens) {
   const AST = [];
   let t = tokens.shift()
-  if (t !== '\'') {
+  if (t.type !== 'special' || t.val !== '\'') {
     throw new Error(`Expected "'" instead of "${t}"`);
   }
   t = tokens.shift()
-  if (t !== '(') {
+  if (t.type !== 'special' || t.val !== '(') {
     return {type: 'list', val: [{type: 'id', val: 'quote'}, t]}
   }
   t = tokens.shift()
-  while (t !== ')') {
+  while (t.type !== 'special' || t.val !== ')') {
     if (t === undefined) {
       throw new Error('Expression not closed with ")"');
-    } else if (t === '(') {
-      tokens.unshift('(')
+    } else if (t.type === 'special' && t.val === '(') {
+      tokens.unshift(t)
       AST.push(ast(tokens));
-    } else if(t === '\'') {
-      tokens.unshift('\'');
+    } else if(t.type === 'special' && t.val === '\'') {
+      tokens.unshift(t);
       AST.push(quoteAst(tokens));
     } else {
       AST.push(t);
@@ -127,31 +132,31 @@ function quoteAst(tokens) {
 /**
  * AST assembling from list of tokens
  */
-export function ast(tokens) {
+export function ast(tokens) {  
   const AST = [];
   let t = tokens.shift()
   
-  if (t === '\'') {
+  if (t.type === 'special' && t.val === '\'') {
     tokens.unshift(t)
     return quoteAst(tokens)
   }
 
-  if (t?.type) {
+  if (t.type !== 'special') {
     return t;
   }
   
-  if (t !== '(') {
+  if (t.type !== 'special' || t.val !== '(') {
     throw new Error(`Expected "(" instead of "${t}"`);
   }
   t = tokens.shift()
-  while (t !== ')') {
+  while (t.type !== 'special' || t.val !== ')') {
     if (t === undefined) {
-      throw new Error('S-Expression not closed with ")"');
-    } else if (t === '(') {
-      tokens.unshift('(')
+      throw new ParseError('S-Expression not closed with ")"');
+    } else if (t.type === 'special' && t.val === '(') {
+      tokens.unshift(t)
       AST.push(ast(tokens));
-    } else if(t === '\'') {
-      tokens.unshift('\'');
+    } else if(t.type === 'special' && t.val === '\'') {
+      tokens.unshift(t);
       AST.push(quoteAst(tokens));
     } else {
       AST.push(t);
@@ -173,4 +178,59 @@ export function parse(str) {
     a.push(ast(tokens));
   } while (tokens.length != 0)
   return a;
+}
+
+
+class CharacterProvider {
+
+  constructor(str) {
+    this.chars = str.split('');
+    this.line = 0;
+    this.char = 0;
+    this.charTotal = 0;
+  }
+
+  shift() {
+    const c = this.chars.shift();
+    this.char += 1;
+    this.charTotal += 1;
+    if (c === '\n') {
+      this.line += 1;
+      this.char = 0;
+    }
+    return c;
+  }
+
+  unshift(c) {
+    this.chars.unshift(c);
+    this.char -= 1;
+    this.charTotal -= 1;
+
+    // TODO: what if c is '\n'?
+  }
+
+  copy() {
+    const n = new CharacterProvider("");
+    n.chars = [...this.chars];
+    n.line = this.line;
+    n.char = this.char;
+    n.charTotal = this.charTotal;
+    return n;
+  }
+
+  get length() {
+    return this.chars.length;
+  }
+
+  get pos() {
+    return {
+      line: this.line,
+      char: this.char,
+      charTotal: this.charTotal,
+      toString() {
+        return `line: ${this.line}, character: ${this.character}`
+      }
+    }
+  }
+
 }

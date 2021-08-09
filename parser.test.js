@@ -20,15 +20,16 @@ test("test nested parser usage", () => {
 })
 
 test("test nested ast usage", () => {
-  const p = ast(    ['(', 
+  const p = ast([
+    {type: 'special', val: '('}, 
     {type: 'id', val: '+'},
     {type: 'num', val: 1},
-    '(',
+    {type: 'special', val: '('},
     {type: 'id', val: '+'},
     {type: 'num', val: 2},
     {type: 'num', val: 3},
-    ')',
-    ')',]
+    {type: 'special', val: ')'},
+    {type: 'special', val: ')'},]
   )
   expect(p).toEqual({type: 'list', val: [
     {type: 'id', val: '+'}, 
@@ -79,15 +80,15 @@ test("tokenize identifiers with dots", () => {
 
 test("tokenize nested expression", () => {
   expect(tokenize('(+ 1 (+ 2 3))')).toEqual([
-    '(', 
+    {type: 'special', val: '('}, 
     {type: 'id', val: '+'},
     {type: 'num', val: 1},
-    '(',
+    {type: 'special', val: '('},
     {type: 'id', val: '+'},
     {type: 'num', val: 2},
     {type: 'num', val: 3},
-    ')',
-    ')',
+    {type: 'special', val: ')'},
+    {type: 'special', val: ')'},
   ])
 })
 
@@ -101,23 +102,23 @@ test("tokenize symbols as identifiers", () => {
 
 test("nested quotes", () => {
   expect(tokenize("(eval. '(eq 'a 'a) '())")).toEqual([
-    "(",
-     {"type": "id", "val": "eval."},
-     "'",
-     "(",
-     {"type": "id", "val": "eq"},
-     "'",
-     {"type": "id", "val": "a"},
-     "'",
-     {"type": "id", "val": "a"},
-     ")",
-     "'",
-     "(",
-     ")",
-     ")",
-    ])
+    {type: 'special', val: '('},
+    {type: 'id', val: 'eval.'},
+    {type: 'special', val: '\''},
+    {type: 'special', val: '('},
+    {type: 'id', val: 'eq'},
+    {type: 'special', val: '\''},
+    {type: 'id', val: 'a'},
+    {type: 'special', val: '\''},
+    {type: 'id', val: 'a'},
+    {type: 'special', val: ')'},
+    {type: 'special', val: '\''},
+    {type: 'special', val: '('},
+    {type: 'special', val: ')'},
+    {type: 'special', val: ')'},
+  ])
 
 
-    expect(ast(tokenize("(eval. '(eq 'a 'a) '())")))
-      .toEqual(ast(tokenize("(eval. (quote (eq (quote a) (quote a))) (quote ()))")))
+  expect(ast(tokenize("(eval. '(eq 'a 'a) '())")))
+    .toEqual(ast(tokenize("(eval. (quote (eq (quote a) (quote a))) (quote ()))")))
 })
