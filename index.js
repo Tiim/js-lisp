@@ -44,6 +44,7 @@
 import readline from 'readline';
 import {readFileSync} from 'fs';
 import {parse} from './parser.js';
+import {LispError} from './error.js';
 
 /**
  * Debug variable. If set to true will print debug information.
@@ -59,6 +60,8 @@ const LOG = (...x) => DEBUG && console.log(...x);
  * Helper funtion (deep object printing), only logs when debug flag is set
  */
 const DIR = (x) => DEBUG && console.dir(x, {depth: Infinity}); 
+
+const printStacktrace = (stacktrace) => stacktrace?.forEach((x) => console.log("# " + x))
 
 /**
  * Constant representing the truth value 't
@@ -83,7 +86,7 @@ const isTrue = (x) => x.type == 'id' && x.val == 't';
  * Returns value from given environment, recursively searches 
  * parent environments
  */
-const getEnv = (id, env) => {
+const getEnv = (id, env, stacktrace) => {
   do {
     const val = env[id];
     if (val) {
@@ -92,7 +95,7 @@ const getEnv = (id, env) => {
     env = env._parentEnv;
   } while(env);
   DIR(env);
-  throw new Error(`Identifier ${id} not found in env ${env}`);
+  throw new LispError(`Identifier ${id} not found in env ${env}`, [...stacktrace, `Evaluating ${id}`]);
 }
 
 /**
@@ -109,11 +112,11 @@ const printEnv = (env) => {
 /**
  * Assert value x is of type type.
  */
-function assertType(x, type) {
+function assertType(x, type, stacktrace) {
   if (x?.type === type) {
     return x
   } else {
-    throw new Error("Expected type " + type + " got type " + x?.type)
+    throw new LispError("Expected type " + type + " got type " + x?.type, stacktrace)
   }
 }
 
@@ -121,38 +124,42 @@ function assertType(x, type) {
  * The global environment
  */
 export const globalEnv = {
-  '+': (x) => ({type: "num", val: x.reduce((p, c) => p + c.val, 0)}),
-  '-': (x, env) => {
+  '+': (x, env, stacktrace) => ({
+    type: "num", 
+    val: x.map(y => 
+      assertType(y, 'num', stacktrace)
+    ).reduce((p, c) => p + c.val, 0)}),
+  '-': (x, env, stacktrace) => {
     if (x.length === 1) {
       return {type: "num", val: -x[0].val};
     } else {
-      return {type: "num", val: x[0].val - getEnv('+',env)(x.slice(1)).val}
+      return {type: "num", val: x[0].val - getEnv('+',env, stacktrace)(x.slice(1)).val}
     }
   },
   '*': (x) => ({type: "num", val:x.reduce((p, c) => p*c.val, 1)}),
-  '/': (x, env) => {
+  '/': (x, env, stacktrace) => {
     if (x.length === 1) {
       return {type: "num", val:1 / x[0].val};
     } else {
-      return {type: "num", val: x[0].val / getEnv('*',env)(x.slice(1)).val};
+      return {type: "num", val: x[0].val / getEnv('*',env, stacktrace)(x.slice(1)).val};
     }
   },
   'atom': (x) =>  x[0].type !== 'list' || x[0].val.length === 0 ? TRUE: FALSE,
   'begin': (x) => x[x.length -1],
-  'car': (x) => assertType(x[0], 'list').val[0],
-  'cdr': (x) => ({type: 'list', val: (assertType(x[0], 'list').val).slice(1)}),
-  'cond': (x, env) => evaluate(x.find(c => isTrue(evaluate(c.val[0], env))).val[1], env),
+  'car': (x, _env, stacktrace) => assertType(x[0], 'list', stacktrace).val[0],
+  'cdr': (x, _env, stacktrace) => ({type: 'list', val: (assertType(x[0], 'list', stacktrace).val).slice(1)}),
+  'cond': (x, env, stacktrace) => evaluate(x.find(c => isTrue(evaluate(c.val[0], env))).val[1], env, stacktrace),
   'cons': (x) => ({type: 'list', val: [x[0], ...(x[1].type === 'list'? x[1].val : [x[1]])]}),
   'defun': (x, env) => env[x[0].val] = ({type: 'func', args: x[1].val.map(y => y.val), ast: x[2], name: x[0].val}),
   'display': (x) => x.forEach(x => console.log(x)),
   'print': (x) => {console.log(x.map(y => display(y)).join('\n')); return TRUE;},
   'eq': (x) => x[0] === x[1] || (x[0].type && x[1].type && x[0].type === x[1].type && JSON.stringify(x[0].val) === JSON.stringify(x[1].val))? TRUE:FALSE,
-  'eval': (x, env) => evaluate(x[0], env),
+  'eval': (x, env, stacktrace) => evaluate(x[0], env, stacktrace),
   'label': (x, env) => env[x[0].val] = x[1],
   'lambda': (x) => ({type: 'func', args: x[0].val.map(y => y.val), ast: x[1]}),
   'list': (x) => ({type: 'list', val: [...x]}),
-  'load': (x, env) => {loadFile(assertType(x[0], 'str').val, env); return TRUE},
-  'parse': (x) => ({type: 'list', val: parse(assertType(x[0], 'str').val)}),
+  'load': (x, env, stacktrace) => {loadFile(assertType(x[0], 'str', stacktrace).val, env, stacktrace); return TRUE},
+  'parse': (x, _env, stacktrace) => ({type: 'list', val: parse(assertType(x[0], 'str', stacktrace).val)}),
   'quote': (x) => x[0],
   'debug': (x, env) => {
     if (!x.length) {
@@ -189,13 +196,15 @@ globalEnv.lambda.preventEval = [0,1];
 /**
  * The eval function
  */
-function evaluate(ast, env) {
+function evaluate(ast, env, stacktrace = []) {
   LOG('Evaluating:');
   DIR(ast);
+  LOG('STACK:');
+  DIR(stacktrace);
   
   if (ast.type === 'id') {
     // ast is an identifier, return the value from the environment
-    return getEnv(ast.val, env);
+    return getEnv(ast.val, env, stacktrace);
   } else if (ast.type === 'num' || ast.type === 'str') {
     // ast is number or string, return directly
     return ast
@@ -203,18 +212,18 @@ function evaluate(ast, env) {
     // ast is a list, call first element as a function with other elements as args
 
     // recursively evalueate the first element
-    let proc = evaluate(ast.val[0], env)
+    let proc = evaluate(ast.val[0], env, stacktrace)
 
     // to solve quoted lambdas for some reason
     while (proc.type === 'list') {
-      proc = evaluate(proc, env)
+      proc = evaluate(proc, env, stacktrace)
     }
 
     // if the first paramenter is not a function
     if (!proc || (typeof proc !== 'function' && proc.type !== 'func')) {
       console.log(ast.val[0].val)
       DIR(proc)
-      throw new Error(`Function "${ast.val[0].val}" is undefined`);
+      throw new LispError(`Function "${ast.val[0].val}" is undefined`, stacktrace);
     }
 
     // evaluate the arguments but skip special forms
@@ -222,7 +231,7 @@ function evaluate(ast, env) {
       if (proc.preventEval && proc.preventEval.includes(i)) {
         return a;
       }
-      return evaluate(a, env)
+      return evaluate(a, env, stacktrace)
     })
 
 
@@ -232,11 +241,13 @@ function evaluate(ast, env) {
       LOG('Built-in function call:',  proc?.name);
       DIR(args)
       try {
-        ret = proc(args, env);
+        ret = proc(args, env, [...stacktrace, `Builtin call: ${proc.name}`]);
       } catch (err) {
-        console.log('ERROR: function call ' + proc?.name +' failed.');
-        console.log('args: ' + JSON.stringify(args, null, 2));
-        console.log('env:', + JSON.stringify(env, null, 2));
+        if (DEBUG) {
+          console.log('ERROR: function call ' + proc?.name +' failed.');
+          console.log('args: ' + JSON.stringify(args, null, 2));
+          console.log('env:', + JSON.stringify(env, null, 2));
+        }
         throw err;
       }
     } else {
@@ -245,7 +256,7 @@ function evaluate(ast, env) {
       const newEnv = proc.args.reduce((obj, a, i) => ({...obj, [a]: args[i]}),{})
       LOG('New ENV', newEnv)
       newEnv._parentEnv = env;
-      ret = evaluate(proc.ast, newEnv)
+      ret = evaluate(proc.ast, newEnv, [...stacktrace, `${proc.name}`])
     }
     LOG("Return", ret);
     return ret;
@@ -257,22 +268,22 @@ function evaluate(ast, env) {
  * Convenience run function, will parse and run a program with a given env.
  * returns a array of results
  */
-export function run(str, env) {
+export function run(str, env, stacktrace=[]) {
   const p = parse(str);
   if (!env) {
     env = newEnv();
   }
-  return p.map(e => evaluate(e, env));
+  return p.map(e => evaluate(e, env, stacktrace));
 }
 
 /**
  * Load content of file and run it with given environment.
  * Returns an AST list of results
  */
-function loadFile(file, env) {
+function loadFile(file, env, stacktrace=[]) {
   LOG('Loading file ' + file)
   const str = readFileSync(file, {encoding: 'utf-8'})
-  return {type: 'list', val: run(str, env)};
+  return {type: 'list', val: run(str, env, stacktrace)};
 }
 
 /**
@@ -294,7 +305,10 @@ function repl() {
       LOG(res)
       res.forEach(r => console.log('->', display(r)));
     } catch(err) {
-      console.log('#>',err);
+      
+      printStacktrace(err.lispStacktrace);
+
+      console.log('#>',err.message);
     }
     read()
     })
