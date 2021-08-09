@@ -44,7 +44,7 @@
 import readline from 'readline';
 import {readFileSync} from 'fs';
 import {parse} from './parser.js';
-import {LispError} from './error.js';
+import {LispError, ParseError} from './error.js';
 
 /**
  * Debug variable. If set to true will print debug information.
@@ -404,12 +404,18 @@ function repl() {
       LOG(res)
       res.forEach(r => console.log('->', display(r)));
     } catch(err) {
-      if (err.lispStacktrace) {
+      if (err instanceof LispError) {
         printStacktrace(err.lispStacktrace);
         console.log('#>',err.message);
+      } else if (err instanceof ParseError) {
+        console.log(`#> Syntax error on ${err.pos}:`)
+        console.log(err.message);
       } else {
         console.log("No stacktrace found!");
-        console.log(err)
+        console.log(err);
+      }
+      if (DEBUG) {
+        console.log(err);
       }
     }
     read()

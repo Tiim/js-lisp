@@ -55,7 +55,7 @@ function tokenizeString(chars) {
       return {type: 'str', val: str, pos};
     } 
     if (c === undefined) {
-      throw new ParseError("String literal never finished", chars.pos)
+      throw new ParseError("String literal never finished", pos)
     }
     str += c;
     last = c;
@@ -108,16 +108,16 @@ function quoteAst(tokens) {
   let t = tokens.shift()
   const pos = t.pos;
   if (t.type !== 'special' || t.val !== '\'') {
-    throw new Error(`Expected "'" instead of "${t}"`);
+    throw new ParseError(`Expected "'" instead of "${t}"`, t.pos);
   }
   t = tokens.shift()
   if (t.type !== 'special' || t.val !== '(') {
     return {type: 'list', val: [{type: 'id', val: 'quote'}, t], pos: t.pos}
   }
   t = tokens.shift()
-  while (t.type !== 'special' || t.val !== ')') {
+  while ( t==null || t.type !== 'special' || t.val !== ')') {
     if (t === undefined) {
-      throw new Error('Expression not closed with ")"');
+      throw new ParseError('Quoted S-Expression not closed with ")"', pos);
     } else if (t.type === 'special' && t.val === '(') {
       tokens.unshift(t)
       AST.push(ast(tokens));
@@ -150,12 +150,12 @@ export function ast(tokens) {
   }
   
   if (t.type !== 'special' || t.val !== '(') {
-    throw new Error(`Expected "(" instead of "${t}"`);
+    throw new ParseError(`Expected "(" instead of "${t}"`, t.pos);
   }
   t = tokens.shift()
-  while (t.type !== 'special' || t.val !== ')') {
+  while (t == null || t.type !== 'special' || t.val !== ')') {
     if (t === undefined) {
-      throw new ParseError('S-Expression not closed with ")"');
+      throw new ParseError('S-Expression not closed with ")"', pos);
     } else if (t.type === 'special' && t.val === '(') {
       tokens.unshift(t)
       AST.push(ast(tokens));
@@ -203,9 +203,9 @@ class CharacterProvider {
 
   constructor(str) {
     this.chars = str.split('');
-    this.line = 0;
-    this.char = 0;
-    this.charTotal = 0;
+    this.line = 1;
+    this.char = 1;
+    this.charTotal = 1;
   }
 
   shift() {
@@ -246,7 +246,7 @@ class CharacterProvider {
       char: this.char,
       charTotal: this.charTotal,
       toString() {
-        return `line: ${this.line}, character: ${this.character}`
+        return `line: ${this.line}, character: ${this.char}`
       }
     }
   }
