@@ -309,6 +309,13 @@ function evaluate(ast, env, stacktrace = new Stacktrace()) {
   } else if (ast.type === 'list') {
     // ast is a list, call first element as a function with other elements as args
 
+
+    // if the list has no elements (value "()") then we interpret that as 
+    // FALSE (value "'()")
+    if (ast.val[0] == null) {
+      return FALSE;
+    }
+
     // recursively evalueate the first element
     let proc = evaluate(ast.val[0], env, stacktrace)
 
