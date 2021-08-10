@@ -11,7 +11,7 @@ test("stack trace", () => {
     (test)
     `)
   } catch (err) {
-    expect(err.lispStacktrace).toEqual([
+    expect(err.lispStacktrace.stack.map(s => s.fun)).toEqual([
       "test",
       "my-failing-func",
       "/",
@@ -27,7 +27,7 @@ test("stack trace long", () => {
     `)
   } catch (err) {
     //console.log(err)
-    expect(err.lispStacktrace).toEqual([
+    expect(err.lispStacktrace.stack.map(s => s.fun)).toEqual([
       "dec",
       "cond",
       "dec",

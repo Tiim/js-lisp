@@ -45,6 +45,7 @@ import readline from 'readline';
 import {readFileSync} from 'fs';
 import {parse} from './parser.js';
 import {LispError, ParseError} from './error.js';
+import {Stacktrace} from './stacktrace.js';
 
 /**
  * Debug variable. If set to true will print debug information.
@@ -60,8 +61,6 @@ const LOG = (...x) => DEBUG && console.log(...x);
  * Helper funtion (deep object printing), only logs when debug flag is set
  */
 const DIR = (x) => DEBUG && console.dir(x, {depth: Infinity}); 
-
-const printStacktrace = (stacktrace) => stacktrace?.forEach((x) => console.log("# " + x))
 
 /**
  * Constant representing the truth value 't
@@ -98,7 +97,7 @@ const getEnv = (id, env, stacktrace) => {
     env = env._parentEnv;
   } while(env);
   DIR(env);
-  throw new LispError(`Identifier ${id} not found in env`, [...stacktrace, `Evaluating ${id}`]);
+  throw new LispError(`Identifier ${id} not found in env`, stacktrace);
 }
 
 /**
@@ -131,11 +130,11 @@ function assertArgs(x, {min, max, exact}, stacktrace) {
     throw new Error('no stacktrace given!')
   }
   if(min !== undefined && x.length < min) {
-    throw new LispError(`Function ${stacktrace[stacktrace.length-1]} expects at least ${min} args, given: ${x.length}`, stacktrace);
+    throw new LispError(`Function ${stacktrace.lastFunction()} expects at least ${min} args, given: ${x.length}`, stacktrace);
   } else if (max !== undefined && x.length > max) {
-    throw new LispError(`Function ${stacktrace[stacktrace.length-1]} expects at most ${max} args, given: ${x.length}`, stacktrace);
+    throw new LispError(`Function ${stacktrace.lastFunction()} expects at most ${max} args, given: ${x.length}`, stacktrace);
   } else if (exact !== undefined && x.length !== exact) {
-    throw new LispError(`Function ${stacktrace[stacktrace.length-1]} expects exactly ${exact} args, given: ${x.length}`, stacktrace);
+    throw new LispError(`Function ${stacktrace.lastFunction()} expects exactly ${exact} args, given: ${x.length}`, stacktrace);
   }
   return x;
 }
@@ -291,11 +290,11 @@ globalEnv.lambda.preventEval = [0,1];
 /**
  * The eval function
  */
-function evaluate(ast, env, stacktrace = []) {
+function evaluate(ast, env, stacktrace = new Stacktrace()) {
   LOG('Evaluating:');
   DIR(ast);
   LOG('STACK:');
-  DIR(stacktrace);
+  LOG(stacktrace.toString());
 
   if (ast == undefined) {
     throw new LispError('Internal error: tried to evaluate undefined value', stacktrace)
@@ -340,7 +339,7 @@ function evaluate(ast, env, stacktrace = []) {
       LOG('Built-in function call:',  proc?.name);
       DIR(args)
       try {
-        ret = proc(args, env, [...stacktrace, proc.name]);
+        ret = proc(args, env, stacktrace.push(proc.name, ast.pos));
       } catch (err) {
         if (DEBUG) {
           console.log('ERROR: function call ' + proc?.name +' failed.');
@@ -355,7 +354,7 @@ function evaluate(ast, env, stacktrace = []) {
       const newEnv = proc.args.reduce((obj, a, i) => ({...obj, [a]: args[i]}),{})
       LOG('New ENV', newEnv)
       newEnv._parentEnv = env;
-      ret = evaluate(proc.ast, newEnv, [...stacktrace, `${proc.name}`])
+      ret = evaluate(proc.ast, newEnv, stacktrace.push(proc.name, ast.pos));
     }
     LOG("Return", ret);
     return ret;
@@ -367,7 +366,7 @@ function evaluate(ast, env, stacktrace = []) {
  * Convenience run function, will parse and run a program with a given env.
  * returns a array of results
  */
-export function run(str, env, stacktrace=[]) {
+export function run(str, env, stacktrace = new Stacktrace()) {
   const p = parse(str);
   if (!env) {
     env = newEnv();
@@ -379,7 +378,7 @@ export function run(str, env, stacktrace=[]) {
  * Load content of file and run it with given environment.
  * Returns an AST list of results
  */
-function loadFile(file, env, stacktrace=[]) {
+function loadFile(file, env, stacktrace = new Stacktrace()) {
   LOG('Loading file ' + file)
   const str = readFileSync(file, {encoding: 'utf-8'})
   return {type: 'list', val: run(str, env, stacktrace)};
@@ -405,7 +404,7 @@ function repl() {
       res.forEach(r => console.log('->', display(r)));
     } catch(err) {
       if (err instanceof LispError) {
-        printStacktrace(err.lispStacktrace);
+        err.lispStacktrace?.print();
         console.log('#>',err.message);
       } else if (err instanceof ParseError) {
         console.log(`#> Syntax error on ${err.pos}:`)
