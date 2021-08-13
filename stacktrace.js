@@ -10,7 +10,7 @@ class Stacktrace {
     return copy;
   }
 
-  lastFunction() {
+  getLastFunction() {
     return this.stack[this.stack.length -1].fun;
   }
 
