@@ -130,11 +130,11 @@ function assertArgs(x, {min, max, exact}, stacktrace) {
     throw new Error('no stacktrace given!')
   }
   if(min !== undefined && x.length < min) {
-    throw new LispError(`Function ${stacktrace.lastFunction()} expects at least ${min} args, given: ${x.length}`, stacktrace);
+    throw new LispError(`Function ${stacktrace.getLastFunction()} expects at least ${min} args, given: ${x.length}`, stacktrace);
   } else if (max !== undefined && x.length > max) {
-    throw new LispError(`Function ${stacktrace.lastFunction()} expects at most ${max} args, given: ${x.length}`, stacktrace);
+    throw new LispError(`Function ${stacktrace.getLastFunction()} expects at most ${max} args, given: ${x.length}`, stacktrace);
   } else if (exact !== undefined && x.length !== exact) {
-    throw new LispError(`Function ${stacktrace.lastFunction()} expects exactly ${exact} args, given: ${x.length}`, stacktrace);
+    throw new LispError(`Function ${stacktrace.getLastFunction()} expects exactly ${exact} args, given: ${x.length}`, stacktrace);
   }
   return x;
 }
