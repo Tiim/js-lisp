@@ -57,6 +57,7 @@ let DEBUG = false;
  * Helper function, only logs when debug flag is set
  */
 const LOG = (...x) => DEBUG && console.log(...x);
+const LOG2 = (...x) => console.log(...x)
 /**
  * Helper funtion (deep object printing), only logs when debug flag is set
  */
@@ -316,8 +317,8 @@ function evaluate(ast, env, stacktrace = new Stacktrace()) {
       return FALSE;
     }
 
-    // recursively evalueate the first element
-    let proc = evaluate(ast.val[0], env, stacktrace)
+    // recursively evaluate the first element
+    let proc = evaluate(ast.val[0], env, stacktrace.push(null, null, ast))
 
     // to solve quoted lambdas for some reason
     while (proc.type === 'list') {
@@ -336,7 +337,7 @@ function evaluate(ast, env, stacktrace = new Stacktrace()) {
       if (proc.preventEval && proc.preventEval.includes(i)) {
         return a;
       }
-      return evaluate(a, env, stacktrace)
+      return evaluate(a, env, stacktrace.push(null, null, ast))
     })
 
 
@@ -346,7 +347,8 @@ function evaluate(ast, env, stacktrace = new Stacktrace()) {
       LOG('Built-in function call:',  proc?.name);
       DIR(args)
       try {
-        ret = proc(args, env, stacktrace.push(proc.name, ast.pos));
+        // stacktrace.pushAll(proc, args, env)
+        ret = proc(args, env, stacktrace.push(proc.name, ast.pos, ast));        
       } catch (err) {
         if (DEBUG) {
           console.log('ERROR: function call ' + proc?.name +' failed.');
@@ -358,10 +360,13 @@ function evaluate(ast, env, stacktrace = new Stacktrace()) {
     } else {
       LOG('User defined function call:');
       DIR(proc)
+      // console.log(proc)
+      // console.log(ast)
       const newEnv = proc.args.reduce((obj, a, i) => ({...obj, [a]: args[i]}),{})
       LOG('New ENV', newEnv)
       newEnv._parentEnv = env;
-      ret = evaluate(proc.ast, newEnv, stacktrace.push(proc.name, ast.pos));
+      // console.log(newEnv)
+      ret = evaluate(proc.ast, newEnv, stacktrace.push(proc.name, ast.pos, ast));
     }
     LOG("Return", ret);
     return ret;
@@ -378,6 +383,7 @@ export function run(str, env, stacktrace = new Stacktrace()) {
   if (!env) {
     env = newEnv();
   }
+  //console.log(p[0].val)
   return p.map(e => evaluate(e, env, stacktrace));
 }
 
