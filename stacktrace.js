@@ -45,10 +45,9 @@ class Stacktrace {
   toString() {
     //return Stacktrace.display(this.stack[this.stack.length - 1]?.ast) + "\n" + this.stack.map(s => `at ${s.fun} (${s.pos})`).join('\n')
     console.log("--- STACKTRACE ---")
-    console.log(this.stack.length)
-    console.log(this.stack[0])
-    return 
-      Stacktrace.display(this.stack[this.stack.length - 1]?.ast) + "\n" + 
+    //console.log(this.stack.length)
+    //console.log(this.stack[0])
+    return Stacktrace.display(this.stack[this.stack.length - 1]?.ast) + "\n" + 
       this.stack.map(s => `at ${s.fun} (${s.pos})`).join('\n')
   }
 

@@ -122,6 +122,7 @@ function assertType(x, type, stacktrace) {
   if (x?.type === type) {
     return x
   } else {
+    console.log(x)
     throw new LispError("Expected type " + type + " got type " + x?.type, stacktrace)
   }
 }
@@ -360,12 +361,9 @@ function evaluate(ast, env, stacktrace = new Stacktrace()) {
     } else {
       LOG('User defined function call:');
       DIR(proc)
-      // console.log(proc)
-      // console.log(ast)
       const newEnv = proc.args.reduce((obj, a, i) => ({...obj, [a]: args[i]}),{})
       LOG('New ENV', newEnv)
       newEnv._parentEnv = env;
-      // console.log(newEnv)
       ret = evaluate(proc.ast, newEnv, stacktrace.push(proc.name, ast.pos, ast));
     }
     LOG("Return", ret);
@@ -379,12 +377,27 @@ function evaluate(ast, env, stacktrace = new Stacktrace()) {
  * returns a array of results
  */
 export function run(str, env, stacktrace = new Stacktrace()) {
-  const p = parse(str);
-  if (!env) {
-    env = newEnv();
+  try {  
+    const p = parse(str);
+    if (!env) {
+      env = newEnv();
+    }
+    return p?.map(e => evaluate(e, env, stacktrace));
+  } catch(err) {
+    if (err instanceof LispError) {
+      err.lispStacktrace?.print();
+      console.log('#>',err.message);
+    } else if (err instanceof ParseError) {
+      console.log(`#> Syntax error on ${err.pos}:`)
+      console.log(err.message);
+    } else {
+      console.log("No stacktrace found!");
+      console.log(err);
+    }
+    if (DEBUG) {
+      console.log(err);
+    }
   }
-  //console.log(p[0].val)
-  return p.map(e => evaluate(e, env, stacktrace));
 }
 
 /**
@@ -394,7 +407,12 @@ export function run(str, env, stacktrace = new Stacktrace()) {
 function loadFile(file, env, stacktrace = new Stacktrace()) {
   LOG('Loading file ' + file)
   const str = readFileSync(file, {encoding: 'utf-8'})
-  return {type: 'list', val: run(str, env, stacktrace)};
+  const res = run(str, env, stacktrace)
+  if (res == null) {
+    return null
+  } else {
+    return {type: 'list', val: res};
+  }
 }
 
 /**
@@ -410,26 +428,10 @@ function repl() {
 
   const read = () =>
   rl.question('> ', (str) => {
-    try {  
-      const res = run(str, env);
+    const res = run(str, env);
 
-      LOG(res)
-      res.forEach(r => console.log('->', display(r)));
-    } catch(err) {
-      if (err instanceof LispError) {
-        err.lispStacktrace?.print();
-        console.log('#>',err.message);
-      } else if (err instanceof ParseError) {
-        console.log(`#> Syntax error on ${err.pos}:`)
-        console.log(err.message);
-      } else {
-        console.log("No stacktrace found!");
-        console.log(err);
-      }
-      if (DEBUG) {
-        console.log(err);
-      }
-    }
+    LOG(res)
+    res.forEach(r => console.log('->', display(r)));
     read()
     })
   read()
@@ -439,7 +441,7 @@ function repl() {
  * Format AST value as human readable text
  */
 function display(value) {
-  if (value == null) {
+  if (value == null || value.val == null) {
     return '!no result'
   }
   if (value.type === 'id') {
