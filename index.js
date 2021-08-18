@@ -243,9 +243,9 @@ export const globalEnv = {
   },
   'list': (x) => ({type: 'list', val: [...x]}),
   'load': (x, env, stacktrace) => {
-    assertArgs(x, {exact: 1}, stacktrace);
+    assertArgs(x, {min: 1}, stacktrace);
     assertType(x[0], 'str', stacktrace);
-    loadFile(x[0].val, env, stacktrace); 
+    loadFile(x[0].val, env, x[1] != null, stacktrace); 
     return TRUE;
   },
   'parse': (x, _env, stacktrace) => {
@@ -385,10 +385,10 @@ export function run(str, env, stacktrace = new Stacktrace()) {
     return p?.map(e => evaluate(e, env, stacktrace));
   } catch(err) {
     if (err instanceof LispError) {
+      console.log(`LispError: ${err.message}`);
       err.lispStacktrace?.print();
-      console.log('#>',err.message);
     } else if (err instanceof ParseError) {
-      console.log(`#> Syntax error on ${err.pos}:`)
+      console.log(`ParseError: Syntax error on ${err.pos}:`)
       console.log(err.message);
     } else {
       console.log("No stacktrace found!");
@@ -404,9 +404,12 @@ export function run(str, env, stacktrace = new Stacktrace()) {
  * Load content of file and run it with given environment.
  * Returns an AST list of results
  */
-function loadFile(file, env, stacktrace = new Stacktrace()) {
+function loadFile(file, env, verbose = false, stacktrace = new Stacktrace()) {
   LOG('Loading file ' + file)
   const str = readFileSync(file, {encoding: 'utf-8'})
+  if (verbose) {
+    console.log(str)
+  }
   const res = run(str, env, stacktrace)
   if (res == null) {
     return null
@@ -429,9 +432,10 @@ function repl() {
   const read = () =>
   rl.question('> ', (str) => {
     const res = run(str, env);
-
-    LOG(res)
-    res.forEach(r => console.log('->', display(r)));
+    if (res != null) {
+      LOG(res)
+      res.forEach(r => console.log('->', display(r)));
+    }
     read()
     })
   read()
@@ -476,11 +480,13 @@ function main() {
   
   const env = newEnv();
   const argv = process.argv;
+
+  const verbose = 0 <= argv.findIndex(a => a === '-v')
   
   const fileIdx = argv.findIndex(a => a === '-f')+1;
   const file = argv[fileIdx];
   if (file && fileIdx !== 0) {
-    console.log(display(loadFile(file, env)));
+    console.log(display(loadFile(file, env, verbose)));
     console.log()
   }
   const codeIdx = argv.findIndex(a => a === '-c') +1;

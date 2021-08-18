@@ -2,6 +2,7 @@ class Stacktrace {
 
   constructor() {
     this.stack = [];
+    this.x = null;
   }
 
   static display(value) {
@@ -31,11 +32,17 @@ class Stacktrace {
     return ""
   }
 
-  push(fun, pos, ast) {
-    console.log(Stacktrace.display(ast));
+  push(fun, pos, ast) {    
+    //console.log("AST:" + Stacktrace.display(ast));
+    // console.log(ast.val)
+    // console.log("\n")
     const copy = new Stacktrace();
     copy.stack = [...this.stack, {fun, pos, ast}];
     return copy;
+  }
+
+  pushError(x) {
+    this.x = x;
   }
 
   getLastFunction() {
@@ -44,15 +51,25 @@ class Stacktrace {
 
   toString() {
     //return Stacktrace.display(this.stack[this.stack.length - 1]?.ast) + "\n" + this.stack.map(s => `at ${s.fun} (${s.pos})`).join('\n')
-    console.log("--- STACKTRACE ---")
+    //console.log("--- STACKTRACE ---")
     //console.log(this.stack.length)
-    //console.log(this.stack[0])
-    return Stacktrace.display(this.stack[this.stack.length - 1]?.ast) + "\n" + 
-      this.stack.map(s => `at ${s.fun} (${s.pos})`).join('\n')
+    //console.log(this.stack[this.stack.length - 1])
+    // console.log(this.x)
+    var str = "\n\t"
+    str += Stacktrace.display(this.stack[0]?.ast) + "\n"
+    if (this.x != null) {
+      str += "\t" + Array(this.x.pos.char).fill('\xa0').join('') + "^\n"
+    }
+    str += this.stack.map(s => `at ${s.fun} (${s.pos})`).join('\n')
+
+    return str
+    
+    // return Stacktrace.display(this.stack[this.stack.length - 1]?.ast) + "\n" + 
+      // this.stack.map(s => `at ${s.fun} (${s.pos})`).join('\n')
   }
 
   print() {
-    console.log('\n\n'+this.toString())
+    console.log(this.toString())
   }
 
 }
