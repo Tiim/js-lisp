@@ -122,8 +122,7 @@ function assertType(x, type, stacktrace) {
   if (x?.type === type) {
     return x
   } else {
-    console.log(x)
-    throw new LispError("Expected type " + type + " got type " + x?.type, stacktrace)
+    throw new LispError("Expected type \"" + type + "\" but found type \"" + x?.type + "\"", stacktrace)
   }
 }
 
@@ -293,6 +292,7 @@ globalEnv.lambda.preventEval = [0,1];
  * The eval function
  */
 function evaluate(ast, env, stacktrace = new Stacktrace()) {
+  
   LOG('Evaluating:');
   DIR(ast);
   LOG('STACK:');
@@ -349,7 +349,7 @@ function evaluate(ast, env, stacktrace = new Stacktrace()) {
       DIR(args)
       try {
         // stacktrace.pushAll(proc, args, env)
-        ret = proc(args, env, stacktrace.push(proc.name, ast.pos, ast));        
+        ret = proc(args, env, stacktrace.push(proc.name, ast.pos, ast));
       } catch (err) {
         if (DEBUG) {
           console.log('ERROR: function call ' + proc?.name +' failed.');
@@ -407,6 +407,7 @@ export function run(str, env, stacktrace = new Stacktrace()) {
 function loadFile(file, env, verbose = false, stacktrace = new Stacktrace()) {
   LOG('Loading file ' + file)
   const str = readFileSync(file, {encoding: 'utf-8'})
+  // Print the loaded LISP Code before returning
   if (verbose) {
     console.log(str)
   }
