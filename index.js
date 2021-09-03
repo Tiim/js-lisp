@@ -98,6 +98,8 @@ const getEnv = (id, env, stacktrace) => {
     env = env._parentEnv;
   } while(env);
   DIR(env);
+  // console.log(id)
+  // console.log(env)
   throw new LispError(`Identifier ${id} not found in env`, stacktrace);
 }
 
@@ -122,7 +124,7 @@ function assertType(x, type, stacktrace) {
   if (x?.type === type) {
     return x
   } else {
-    throw new LispError("Expected type \"" + type + "\" but found type \"" + x?.type + "\"", stacktrace)
+    throw new LispError("Expected type \"" + type + "\" but found type \"" + x?.type + "\"", stacktrace.pushErrorObject(x))
   }
 }
 
@@ -130,12 +132,16 @@ function assertArgs(x, {min, max, exact}, stacktrace) {
   if (!stacktrace) {
     throw new Error('no stacktrace given!')
   }
+  var errorObject = null
   if(min !== undefined && x.length < min) {
     throw new LispError(`Function ${stacktrace.getLastFunction()} expects at least ${min} args, given: ${x.length}`, stacktrace);
   } else if (max !== undefined && x.length > max) {
     throw new LispError(`Function ${stacktrace.getLastFunction()} expects at most ${max} args, given: ${x.length}`, stacktrace);
   } else if (exact !== undefined && x.length !== exact) {
-    throw new LispError(`Function ${stacktrace.getLastFunction()} expects exactly ${exact} args, given: ${x.length}`, stacktrace);
+    for (var y of x) {
+      if (errorObject === null || errorObject.pos.char < y.pos.char) { errorObject = y }
+    }
+    throw new LispError(`Function ${stacktrace.getLastFunction()} expects exactly ${exact} args, given: ${x.length}`, stacktrace.pushErrorObject(errorObject));
   }
   return x;
 }
@@ -361,10 +367,13 @@ function evaluate(ast, env, stacktrace = new Stacktrace()) {
     } else {
       LOG('User defined function call:');
       DIR(proc)
+      // console.log(proc.args)
+      // console.log(args)
+      assertArgs(args, {exact: proc.args.length}, stacktrace.push(proc.name, ast.pos, ast))
       const newEnv = proc.args.reduce((obj, a, i) => ({...obj, [a]: args[i]}),{})
       LOG('New ENV', newEnv)
       newEnv._parentEnv = env;
-      ret = evaluate(proc.ast, newEnv, stacktrace.push(proc.name, ast.pos, ast));
+      ret = evaluate(proc.ast, newEnv, stacktrace);
     }
     LOG("Return", ret);
     return ret;

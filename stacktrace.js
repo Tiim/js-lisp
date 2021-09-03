@@ -36,24 +36,28 @@ class Stacktrace {
     //console.log("AST:" + Stacktrace.display(ast));
     // console.log(ast.val)
     // console.log("\n")
+    if (fun === null) {
+      return this
+    }
     const copy = new Stacktrace();
     copy.stack = [...this.stack, {fun, pos, ast}];
     return copy;
   }
 
-  pushError(x) {
+  pushErrorObject(x) {
     this.x = x;
+    return this
   }
 
   getLastFunction() {
-    return this.stack[this.stack.length -1].fun;
+    return this.stack[this.stack.length -1]?.fun;
   }
 
   toString() {
     //return Stacktrace.display(this.stack[this.stack.length - 1]?.ast) + "\n" + this.stack.map(s => `at ${s.fun} (${s.pos})`).join('\n')
-    //console.log("--- STACKTRACE ---")
-    //console.log(this.stack.length)
-    //console.log(this.stack[this.stack.length - 1])
+    // console.log("--- STACKTRACE ---")
+    // console.log(this.stack.length)
+    // console.log(this.stack[this.stack.length - 1]?.ast)
     // console.log(this.x)
     var str = "\n\t"
     str += Stacktrace.display(this.stack[0]?.ast) + "\n"
