@@ -132,15 +132,18 @@ function assertArgs(x, {min, max, exact}, stacktrace) {
   if (!stacktrace) {
     throw new Error('no stacktrace given!')
   }
+
+  // TODO: Not pretty...only determine if an actual mismatch is found
   var errorObject = null
+  for (var y of x) {
+    if (errorObject === null || errorObject.pos.char < y.pos.char) { errorObject = y }
+  }
+
   if(min !== undefined && x.length < min) {
-    throw new LispError(`Function ${stacktrace.getLastFunction()} expects at least ${min} args, given: ${x.length}`, stacktrace);
+    throw new LispError(`Function ${stacktrace.getLastFunction()} expects at least ${min} args, given: ${x.length}`, stacktrace.pushErrorObject(errorObject));
   } else if (max !== undefined && x.length > max) {
-    throw new LispError(`Function ${stacktrace.getLastFunction()} expects at most ${max} args, given: ${x.length}`, stacktrace);
+    throw new LispError(`Function ${stacktrace.getLastFunction()} expects at most ${max} args, given: ${x.length}`, stacktrace.pushErrorObject(errorObject));
   } else if (exact !== undefined && x.length !== exact) {
-    for (var y of x) {
-      if (errorObject === null || errorObject.pos.char < y.pos.char) { errorObject = y }
-    }
     throw new LispError(`Function ${stacktrace.getLastFunction()} expects exactly ${exact} args, given: ${x.length}`, stacktrace.pushErrorObject(errorObject));
   }
   return x;

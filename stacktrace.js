@@ -2,7 +2,7 @@ class Stacktrace {
 
   constructor() {
     this.stack = [];
-    this.x = null;
+    this.errorObject = null;
   }
 
   static display(value) {
@@ -44,8 +44,8 @@ class Stacktrace {
     return copy;
   }
 
-  pushErrorObject(x) {
-    this.x = x;
+  pushErrorObject(errorObject) {
+    this.errorObject = errorObject;
     return this
   }
 
@@ -61,8 +61,8 @@ class Stacktrace {
     // console.log(this.x)
     var str = "\n\t"
     str += Stacktrace.display(this.stack[0]?.ast) + "\n"
-    if (this.x != null) {
-      str += "\t" + Array(this.x.pos.char).fill('\xa0').join('') + "^\n"
+    if (this.errorObject != null) {
+      str += "\t" + Array(this.errorObject.pos.char).fill('\xa0').join('') + "^\n"
     }
     str += this.stack.map(s => `at ${s.fun} (${s.pos})`).join('\n')
 
