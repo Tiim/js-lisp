@@ -44,7 +44,3 @@ test("stack trace long", () => {
     ])
   }
 })
-
-test("divide by zero", () => {
-  expect(() => run('(/ 1 2 0)')).toThrow("Divide By Zero");
-})
