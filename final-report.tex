@@ -107,10 +107,29 @@
 	
 	
 	\section{Objectives}
+	The main objective is a full stack trace with the exact position of the occurrence of an error up to the first call of the program like Python and Java does:
+	
+	\begin{lstlisting}
+	Traceback (most recent call last):
+	File "python_stacktrace.py", line 10, in <module>
+	f3(1)
+	File "python_stacktrace.py", line 8, in f3
+	f2(z, z)
+	File "python_stacktrace.py", line 5, in f2
+	f1()
+	TypeError: f1() missing 1 required positional argument: 'x'
+	\end{lstlisting}
+	
+	To achieves this a detection of different types of LISP error is crucial. Checking for errors includes:
 	\begin{itemize}
-		\item Detection of LISP errors
-		\item Detailed as possible stack trace
+		\item Number of arguments
+		\item Type of arguments
+		\item Length of lists
+		\item Missing or invalid branches in conditionals
+		\item Semantics (e.g. Divide-By-Zero)
 	\end{itemize}
+	
+	Beside of this, the position of an erroneous token is determined in order to provide a meaningful stack trace. All these features apply to code loaded from files as well as to the REPL.
 	\newpage
 	
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -198,9 +217,9 @@
 	
 	\section{Conclusion}
 	\subsection{Challenges}
-	It was surprisingly straightforward to implement the basic stacktrace and basic error handling for built-in functions. The challenges we faced were implementing the features like correct line and caracter numbers, ...?
+	It was pretty straightforward to implement the basic stack trace and basic error handling for built-in functions. The challenges we faced were implementing the features like correct line and character positions of errors. Another problem are custom functions respectively lambda expressions. Whereas the number of arguments can be directly determined, the correct type can't. This was solved by indirect tracing the arguments to built-in functions and a recursive stack trace.
 	
-	Having a robust unit testing solution really helped us not regressing when adding new features.
+	Having a robust unit testing solution really helped us not regressing when adding new features like altering the parser to recognize the token positions.
 	
 	
 	\subsection{Enhancements}
