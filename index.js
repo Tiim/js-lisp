@@ -4,9 +4,10 @@
 
   (Tested with node version v14.15.4)
   
-  node index.js [-f (filename)] [-c '(code)']
+  node index.js [-f (filename)] [-c '(code)'] [-v]
     -f (filename): loads the file and executes it
     -c (code): executes the code given as the parameter.
+    -v : Print loaded code 
 
     If both options are given, the file will be loaded first, then the code from the argument will be executed.
 
@@ -17,6 +18,7 @@
   node index.js -f examples/roots-of-lisp.ls # run examples from roots of lisp
   node index.js -f examples/built-in-functions.ls # run other example programs
   node index.js -f examples/lib-functions.ls # run other example programs
+  node index.js -f examples/lib-functions.ls -v # run other example programs and print code before running
   node index.js -f lib.ls -c "(cadar '(((c y) 1) c))" # load the "std-lib" and use a defined function
 
   ## REPL:
