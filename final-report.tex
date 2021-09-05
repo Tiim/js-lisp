@@ -1,0 +1,231 @@
+\documentclass[a4paper,titlepage]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage[T1]{fontenc}
+\usepackage[headheight=100pt,heightrounded, margin=1.2cm, tmargin=100pt]{geometry}
+\geometry{a4paper,left=30mm,right=30mm,top=30mm,bottom=20mm}
+\usepackage{graphicx}
+\usepackage{amsmath,amsfonts,amssymb}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{fancyhdr}
+\usepackage{textcomp}
+\usepackage{lastpage}
+\numberwithin{equation}{section} %Nummeriert mathematische Umgebungen nach sections durch
+\usepackage[nodisplayskipstretch]{setspace} %lässt Abstand zwischen align-Umgebungen und Text auf 1.0
+\setstretch{1.5}% ergibt 1,5-fachen Zeilenabstand
+
+\pagestyle{fancy}
+\fancyhf{}
+
+\lstset{
+	basicstyle=\ttfamily,
+	columns=fullflexible,
+	frame=l,
+	framerule=1pt,
+	breaklines=true,
+	numbers=left,
+	stepnumber=1,
+	tabsize=4,
+	xleftmargin=1cm,
+	xrightmargin=1cm,
+	framesep=0.2cm,
+}
+
+%%% Fill information here
+\newcommand{\classname}{SICP} % Class Name
+\newcommand{\classnamefull}{Struktur und Interpretation von Computerprogrammen} % Class Name
+\newcommand{\classtype}{Project Report} % Project Type
+\newcommand{\classtitle}{Stack Trace for JavaScript LISP Interpreter} % Project Title
+\newcommand{\classsemester}{FS 2021} % Semester
+\newcommand{\classauthorone}{Tim Bachmann} % Author One Name
+\newcommand{\classmatrnrone}{15-916-299} % matrikelnummer (optional)
+\newcommand{\classauthortwo}{Marc Schäfer} % Author One Name
+\newcommand{\classmatrnrtwo}{13-055-785} % matrikelnummer (optional)
+
+\newcounter{EmptyAuthorInfo}
+\newcommand{\mytitle}[1]{{\noindent\Large\textbf{#1}}}
+%\newcommand{\mysection}[1]{\textbf{\section{Exercise \exnr.#1}}}
+\newcommand{\todo}[1][]{\textcolor{red}{TODO #1}}
+\newcommand{\mystyling}[0]{
+	\lhead{
+		\textbf{University of Basel}\\
+		\textbf{\classname}~|~\classsemester\\
+		\today
+	}
+	\rhead{
+		\textbf{\classauthorone}\textit{\classmatrnrone}
+		\\\textbf{\classauthortwo}\textit{\classmatrnrtwo}\\
+		Page \thepage~of~\pageref{LastPage}
+	}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+	\mystyling
+	\begin{titlepage}
+		
+		\begin{center}
+			\includegraphics[scale=1.5]{Logo_Basel}
+		\end{center}
+		\vspace{2.5cm}
+		\begin{center}
+			{\Large\scshape \classtype}\\*[5mm]
+			{\bf\Large\scshape \classtitle}\\*[12mm]         
+		\end{center}  
+		\vspace{4,5cm}
+		\begin{center}
+			{\Large\scshape \textbf{\classnamefull}}\\*[5mm]
+			{\Large \classsemester}\\*[5mm]   
+		\end{center}  
+		\vspace{4,5cm}
+		\begin{center}
+			{\bf\Large\scshape \classauthorone}\\*[5mm]
+			{\bf\Large\scshape \classauthortwo}\\*[12mm]         
+		\end{center}  
+	\end{titlepage}
+	\newpage
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	
+	%\thispagestyle{empty}
+	\setcounter{page}{1}
+	
+	\tableofcontents
+	\newpage
+	
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	
+	\section{Overview}
+	This project is an extension of the JavaScript LISP Interpreter created by Tim Bachmann. Developing and debugging a LISP program can be complex and a stack trace is tremendous helpful. To extend the interpreter with a stack trace, an error detection for LISP errors has been implemented and refined. The Java and Python stack traces serve as models for the representation of a LISP stack trace.
+	
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	
+	
+	\section{Objectives}
+	\begin{itemize}
+		\item Detection of LISP errors
+		\item Detailed as possible stack trace
+	\end{itemize}
+	\newpage
+	
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	
+	\section{Implementation}
+	\subsection{Keeping Track of the Stack}
+	
+	The implementation of the lisp interpreter uses a modified version of the eval-apply loop shown in the seminar. Therefore the lisp program implicitly uses the javascript runtime stack to keep track of the lisp function calls. Because it is not feasible to differentiate between stack elements that are caused by function calls in lisp and internal interpreter  calls, we decided to manually keep track of a call stack, which only stores data that is necessary to print a stack trace.
+	
+	The implementation of the stack is done in the class \texttt{Stacktrace} in \texttt{stacktrace.js}. This class immutably wraps an array that stores stack elements. The \texttt{Stacktrace} class does not implement a real stack, because it does not have a method \texttt{pop()}, and the \texttt{push()} method does not mutate the stack, but instead returns a modified copy of the whole object.
+	This allows us to push a function call to the stacktrace and pass the newly created object as a parameter to the evaluate call, without having to worry about popping this value again from the stack. This is because the modified stacktrace object will only live until the evaluate call returns and we still have the original stacktrace.
+	
+	\subsection{Keeping Track of Token Positions}
+	\label{sub-token-pos}
+	Displaying the position of where a function was called is a big part of the usefulness of a stacktrace. To be able to do that we have to store the position of the first character of every token when tokenizing the code, as well as storing this data in the AST.
+	
+	To simplify keeping track of the current position while tokenizing we wrapped the input character array inside the class \texttt{CharacterProvider}. In addition to returning single characters this class will keep track of current line and character counts. Some tokenizations require backtracking, for example the function \texttt{tokenizeNumber} is expected to only consume the characters belonging to a number and not the whitespace (or any other character) after the number. The \texttt{CharacterProvider} supports "unshifting" character back, which also subtracts from the current character count.
+	
+	\newpage
+	\section{Examples}
+	
+	\subsection{Lisp Errors}
+	
+	\subsubsection{Argument Length}
+	\begin{lstlisting}[]
+	(defun three-args (x y z) (+ (+ x y) z))
+	(three-args 1 2)
+	
+	LispError: Function three-args expects exactly 3 args, given: 2
+	
+	(three-args 1 2)
+	^
+	at three-args (line: 1, character: 2)
+	\end{lstlisting}
+	\vspace{1cm}
+	\subsubsection{Type Errors}
+	\begin{lstlisting}
+	(+ 1 "test")
+	
+	LispError: Expected type "num" but found type "str"
+	
+	(+ 1 "test")
+	^
+	at + (line: 1, character: 2)
+	\end{lstlisting}
+	\vspace{1cm}
+	
+	\subsubsection{No Applicable \texttt{cond} Branch}
+	\begin{lstlisting}
+	(cond ((eq 1 2) "1 = 2?") ('() "'() is true?"))
+	LispError: No true branch found
+	
+	(cond ((eq 1 2) "1 = 2?") ((quote ()) "'() is true?"))
+	at cond (line: 1, character: 2)
+	\end{lstlisting}
+	
+	
+	\newpage
+	\subsection{Recursive Stacktrace}
+	\begin{lstlisting}[]
+	(defun dec (x) (cond ((eq x 0) (/ 1 x)) ('t (dec (- x 1)))))
+	(dec 5)
+	
+	LispError: Divide By Zero
+	
+	(dec 5)
+	at dec (line: 1, character: 6)
+	at cond (line: 1, character: 21)
+	at dec (line: 1, character: 50)
+	at cond (line: 1, character: 21)
+	at dec (line: 1, character: 50)
+	at cond (line: 1, character: 21)
+	at dec (line: 1, character: 50)
+	at cond (line: 1, character: 21)
+	at dec (line: 1, character: 50)
+	at cond (line: 1, character: 21)
+	at dec (line: 1, character: 50)
+	at cond (line: 1, character: 21)
+	at / (line: 1, character: 37)
+	\end{lstlisting}
+	\newpage
+	
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	
+	\section{Conclusion}
+	\subsection{Challenges}
+	It was surprisingly straightforward to implement the basic stacktrace and basic error handling for built-in functions. The challenges we faced were implementing the features like correct line and caracter numbers, ...?
+	
+	Having a robust unit testing solution really helped us not regressing when adding new features.
+	
+	
+	\subsection{Enhancements}
+	
+	\subsubsection*{Tokenization Backtracking}
+	As explained in Section \ref{sub-token-pos}, tokenization will return characters back to the \texttt{CharacterProvider} and we expect that it correctly keeps track of the line and character numbers. Currently the following edge case will lead to incorrect line and character numbers: When a newline character is returned to the provider, it should correctly decrement the line number and adjust the character number to the end of the previous line. The current implementation does not store any characters that it already returned, it is therefore impossible to know how long the previous line was. The current behaviour is to assume no returned characters are newlines and just decrement the character count.
+	
+	This could be solved by either keeping track of all line lengths, or by not removing characters from the array and instead keeping a pointer to the current character.
+	\newpage
+	
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	
+	
+	%\begingroup
+	%\addcontentsline{toc}{section}{References}
+	%\renewcommand*\refname{References}
+	
+	%\begin{thebibliography}{----}
+	
+	%\bibitem{Mack1993}
+	%\textsc{Mack}, T. (1993): {\it Distribution-free calculation of the standard error of %chain ladder reserve estimates}. ASTIN Bulletin 23/2, S. 171-183.
+	
+	%\bibitem{Wuethrich-et-al2010}
+	%\textsc{Wüthrich}, M. V., \textsc{Bühlmann}, H. \& \textsc{Furrer}, H. (2010): {\it Market-Consistent Actuarial Valuation}. Springer Verlag, Berlin. 2. Auflage.
+	%\end{thebibliography}
+	%\endgroup
+\end{document}
