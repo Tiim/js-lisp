@@ -136,7 +136,7 @@ function assertArgs(x, {min, max, exact}, stacktrace) {
   // TODO: Not pretty...only determine if an actual mismatch is found
   var errorObject = null
   for (var y of x) {
-    if (errorObject === null || errorObject.pos.char < y.pos.char) { errorObject = y }
+    if (errorObject == null || errorObject.pos == null || (y.pos && errorObject.pos.char < y.pos.char)) { errorObject = y }
   }
 
   if(min !== undefined && x.length < min) {
@@ -376,7 +376,7 @@ function evaluate(ast, env, stacktrace = new Stacktrace()) {
       const newEnv = proc.args.reduce((obj, a, i) => ({...obj, [a]: args[i]}),{})
       LOG('New ENV', newEnv)
       newEnv._parentEnv = env;
-      ret = evaluate(proc.ast, newEnv, stacktrace);
+      ret = evaluate(proc.ast, newEnv, stacktrace.push(proc.name, ast.pos, ast));
     }
     LOG("Return", ret);
     return ret;
